@@ -18,16 +18,21 @@ import { isBefore } from "date-fns";
 import { useMemo } from "react";
 
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-  const cookies = cookie.parse(req.headers.cookie || "");
-  const token = cookies.session;
-
-  if (!token) {
-    return {
-      redirect: { destination: "/get-started/student/login", permanent: false },
-    };
-  }
-
   try {
+    const cookies = req.cookies;
+    // console.log("M1", cookies);
+    // console.log("M2:", cookie.parse(req.headers.cookie || ""));
+    const token = cookies.session;
+
+    if (!token) {
+      return {
+        redirect: {
+          destination: "/get-started/student/login",
+          permanent: false,
+        },
+      };
+    }
+
     const payload = verifyToken(token);
     const email = typeof payload === "string" ? undefined : payload.email;
 

@@ -30,7 +30,7 @@ const steps = [
   },
 ];
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-  const cookies = cookie.parse(req.headers.cookie || "");
+  const cookies = req.cookies;
   const token = cookies.session;
 
   if (!token) {
@@ -80,7 +80,7 @@ export default function Vetting({
   const [alreadyCompleted, setAlreadyCompleted] = useState(
     vettingProgressResponse?.success
       ? vettingProgressResponse?.data.isComplete
-      : false
+      : false,
   );
   const [rejected, setRejected] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -173,7 +173,7 @@ export default function Vetting({
                         Object.entries(
                           vettingProgressResponse?.success
                             ? vettingProgressResponse.data
-                            : {}
+                            : {},
                         ).filter(
                           ([key]) =>
                             ![
@@ -181,8 +181,8 @@ export default function Vetting({
                               "isUnderReview",
                               "isAccepted",
                               "isRejected",
-                            ].includes(key)
-                        )
+                            ].includes(key),
+                        ),
                       )}
                     />
                   </div>

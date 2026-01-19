@@ -18,7 +18,7 @@ import Link from "next/link";
 
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
   const res = await fetchProjectsData();
-  const cookies = cookie.parse(req.headers.cookie || "");
+  const cookies = req.cookies;
   const token = cookies.session;
 
   if (!token) {
@@ -112,7 +112,7 @@ function Stage2({
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [projectChosen, setProjectChosen] = useState<FilteredProject | null>(
-    null
+    null,
   );
   const router = useRouter();
   let data: Record<string, Project[]> = {};
@@ -204,7 +204,7 @@ function Stage2({
                       window.history.pushState(
                         { page: 2 },
                         "",
-                        "?project-selection=true"
+                        "?project-selection=true",
                       );
                       setCurrentPage(2);
                     }}
@@ -240,7 +240,7 @@ function Stage2({
                                     window.history.pushState(
                                       { page: 3, project: fullProject },
                                       "",
-                                      `?project=${projData.id}`
+                                      `?project=${projData.id}`,
                                     );
                                     setProjectChosen(fullProject);
                                     setCurrentPage(3);
@@ -251,7 +251,7 @@ function Stage2({
                                   tags={tags}
                                 />
                               );
-                            }
+                            },
                           )}
                         </div>
                       </div>
@@ -262,7 +262,7 @@ function Stage2({
                         window.history.pushState(
                           { page: 1 },
                           "",
-                          "?start=true"
+                          "?start=true",
                         );
                         setCurrentPage(1);
                         setProjectChosen(null);
@@ -291,7 +291,7 @@ function Stage2({
                           window.history.pushState(
                             { page: 2 },
                             "",
-                            "?project-selection=true"
+                            "?project-selection=true",
                           );
                           setProjectChosen(null);
                           setCurrentPage(2);

@@ -3,7 +3,7 @@ import { verifyToken } from "@/src/lib/jwt";
 import cookie from "cookie";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const cookies = cookie.parse(req.headers.cookie || "");
+  const cookies = req.cookies;
   const token = cookies.session;
 
   if (process.env.NODE_ENV === "development") {

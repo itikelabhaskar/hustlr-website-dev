@@ -15,7 +15,7 @@ import { isBefore } from "date-fns";
 import { CountdownTimer } from "@/src/components/stage2/CountdownTimer";
 
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-  const cookies = cookie.parse(req.headers.cookie || "");
+  const cookies = req.cookies;
   const jwtToken = cookies.session;
 
   if (!jwtToken) {

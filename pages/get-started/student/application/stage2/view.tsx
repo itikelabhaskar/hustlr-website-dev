@@ -12,7 +12,7 @@ import VettingDataDisplay from "@/src/components/vetting/VettingDetails";
 import Nav from "@/src/components/Nav";
 
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-  const cookies = cookie.parse(req.headers.cookie || "");
+  const cookies = req.cookies;
   const token = cookies.session;
 
   if (!token) {
@@ -109,8 +109,10 @@ export default function page({
                   Object.entries(
                     vettingProgressResponse?.success
                       ? vettingProgressResponse.data
-                      : {}
-                  ).filter(([key]) => ["videoLink", "otherLinks"].includes(key))
+                      : {},
+                  ).filter(([key]) =>
+                    ["videoLink", "otherLinks"].includes(key),
+                  ),
                 )}
               />
             </div>
