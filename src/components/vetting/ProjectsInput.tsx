@@ -132,7 +132,7 @@ export function ProjectsInput({ form }: { form: FormFieldProp }) {
     if (!projectForm.description.trim()) {
       errors.description = "Description is required";
     } else if (projectForm.description.trim().split(/\s+/).filter(Boolean).length > 200) {
-      errors.description = "Description must be 200 words or less";
+      errors.description = "Description should not be more than 200 words";
     }
     if (projectForm.techStack.length === 0) errors.techStack = "Add at least one technology";
     if (!projectForm.projectCategory) errors.projectCategory = "Project category is required";
@@ -318,13 +318,11 @@ export function ProjectsInput({ form }: { form: FormFieldProp }) {
                     <Textarea
                       value={projectForm.description}
                       onChange={(e) => {
-                        const words = e.target.value.trim().split(/\s+/).filter(Boolean);
-                        if (words.length > 200) {
-                          const truncated = words.slice(0, 200).join(" ");
-                          setProjectForm(prev => ({ ...prev, description: truncated }));
-                          setFormErrors(prev => ({ ...prev, description: "Description must be 200 words or less" }));
+                        setProjectForm(prev => ({ ...prev, description: e.target.value }));
+                        const wordCount = e.target.value.trim().split(/\s+/).filter(Boolean).length;
+                        if (wordCount > 200) {
+                          setFormErrors(prev => ({ ...prev, description: "Description should not be more than 200 words" }));
                         } else {
-                          setProjectForm(prev => ({ ...prev, description: e.target.value }));
                           setFormErrors(prev => { const { description, ...rest } = prev; return rest; });
                         }
                         // Auto-resize
@@ -335,7 +333,7 @@ export function ProjectsInput({ form }: { form: FormFieldProp }) {
                       className={cn("w-full min-h-[100px] resize-y whitespace-pre-wrap break-words", formErrors.description && "border-red-500")}
                       rows={4}
                     />
-                    <p className={cn("text-xs mt-1 text-right", projectForm.description.trim().split(/\s+/).filter(Boolean).length >= 200 ? "text-red-500" : "text-gray-400")}>
+                    <p className={cn("text-xs mt-1 text-right", projectForm.description.trim().split(/\s+/).filter(Boolean).length > 200 ? "text-red-500" : "text-gray-400")}>
                       {projectForm.description.trim().split(/\s+/).filter(Boolean).length} / 200 words
                     </p>
                     {formErrors.description && (
@@ -567,7 +565,7 @@ export function ProjectsInput({ form }: { form: FormFieldProp }) {
                   >
                     Cancel
                   </Button>
-                  <Button type="button" onClick={saveProject}>
+                  <Button type="button" onClick={saveProject} disabled={!!formErrors.description}>
                     {editingIndex !== null ? "Update Project" : "Add Project"}
                   </Button>
                 </div>

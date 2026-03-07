@@ -113,7 +113,7 @@ export function HackathonInput({ form }: { form: FormFieldProp }) {
     if (!hackathonForm.description.trim()) {
       errors.description = "Description is required";
     } else if (hackathonForm.description.trim().split(/\s+/).filter(Boolean).length > 200) {
-      errors.description = "Description must be 200 words or less";
+      errors.description = "Description should not be more than 200 words";
     }
     if (!hackathonForm.placement) errors.placement = "Placement is required";
     if (!hackathonForm.type) errors.type = "Hackathon type is required";
@@ -379,13 +379,11 @@ export function HackathonInput({ form }: { form: FormFieldProp }) {
                     <Textarea
                       value={hackathonForm.description}
                       onChange={(e) => {
-                        const words = e.target.value.trim().split(/\s+/).filter(Boolean);
-                        if (words.length > 200) {
-                          const truncated = words.slice(0, 200).join(" ");
-                          setHackathonForm(prev => ({ ...prev, description: truncated }));
-                          setFormErrors(prev => ({ ...prev, description: "Description must be 200 words or less" }));
+                        setHackathonForm(prev => ({ ...prev, description: e.target.value }));
+                        const wordCount = e.target.value.trim().split(/\s+/).filter(Boolean).length;
+                        if (wordCount > 200) {
+                          setFormErrors(prev => ({ ...prev, description: "Description should not be more than 200 words" }));
                         } else {
-                          setHackathonForm(prev => ({ ...prev, description: e.target.value }));
                           setFormErrors(prev => { const { description, ...rest } = prev; return rest; });
                         }
                         e.target.style.height = "auto";
@@ -395,7 +393,7 @@ export function HackathonInput({ form }: { form: FormFieldProp }) {
                       className={cn("w-full min-h-[100px] resize-y whitespace-pre-wrap break-words", formErrors.description && "border-red-500")}
                       rows={4}
                     />
-                    <p className={cn("text-xs mt-1 text-right", hackathonForm.description.trim().split(/\s+/).filter(Boolean).length >= 200 ? "text-red-500" : "text-gray-400")}>
+                    <p className={cn("text-xs mt-1 text-right", hackathonForm.description.trim().split(/\s+/).filter(Boolean).length > 200 ? "text-red-500" : "text-gray-400")}>
                       {hackathonForm.description.trim().split(/\s+/).filter(Boolean).length} / 200 words
                     </p>
                     {formErrors.description && (
@@ -429,7 +427,7 @@ export function HackathonInput({ form }: { form: FormFieldProp }) {
                   >
                     Cancel
                   </Button>
-                  <Button type="button" onClick={saveHackathon}>
+                  <Button type="button" onClick={saveHackathon} disabled={!!formErrors.description}>
                     {editingIndex !== null ? "Update Hackathon" : "Add Hackathon"}
                   </Button>
                 </div>

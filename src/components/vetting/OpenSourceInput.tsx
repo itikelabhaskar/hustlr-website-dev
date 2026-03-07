@@ -139,7 +139,7 @@ export function OpenSourceInput({ form }: { form: FormFieldProp }) {
     if (!osForm.impactDescription.trim()) {
       errors.impactDescription = "Impact description is required";
     } else if (osForm.impactDescription.trim().split(/\s+/).filter(Boolean).length > 200) {
-      errors.impactDescription = "Description must be 200 words or less";
+      errors.impactDescription = "Description should not be more than 200 words";
     }
 
     if (!osForm.monthsContributing.trim()) {
@@ -388,13 +388,11 @@ export function OpenSourceInput({ form }: { form: FormFieldProp }) {
                     <Textarea
                       value={osForm.impactDescription}
                       onChange={(e) => {
-                        const words = e.target.value.trim().split(/\s+/).filter(Boolean);
-                        if (words.length > 200) {
-                          const truncated = words.slice(0, 200).join(" ");
-                          setField("impactDescription", truncated);
-                          setFormErrors(prev => ({ ...prev, impactDescription: "Description must be 200 words or less" }));
+                        setField("impactDescription", e.target.value);
+                        const wordCount = e.target.value.trim().split(/\s+/).filter(Boolean).length;
+                        if (wordCount > 200) {
+                          setFormErrors(prev => ({ ...prev, impactDescription: "Description should not be more than 200 words" }));
                         } else {
-                          setField("impactDescription", e.target.value);
                           setFormErrors(prev => { const { impactDescription, ...rest } = prev; return rest; });
                         }
                         e.target.style.height = "auto";
@@ -404,7 +402,7 @@ export function OpenSourceInput({ form }: { form: FormFieldProp }) {
                       className={cn("w-full min-h-[100px] resize-y whitespace-pre-wrap break-words", formErrors.impactDescription && "border-red-500")}
                       rows={4}
                     />
-                    <p className={cn("text-xs mt-1 text-right", osForm.impactDescription.trim().split(/\s+/).filter(Boolean).length >= 200 ? "text-red-500" : "text-gray-400")}>
+                    <p className={cn("text-xs mt-1 text-right", osForm.impactDescription.trim().split(/\s+/).filter(Boolean).length > 200 ? "text-red-500" : "text-gray-400")}>
                       {osForm.impactDescription.trim().split(/\s+/).filter(Boolean).length} / 200 words
                     </p>
                     {formErrors.impactDescription && (
@@ -424,7 +422,7 @@ export function OpenSourceInput({ form }: { form: FormFieldProp }) {
                   >
                     Cancel
                   </Button>
-                  <Button type="button" onClick={saveEntry}>
+                  <Button type="button" onClick={saveEntry} disabled={!!formErrors.impactDescription}>
                     {editingIndex !== null ? "Update Contribution" : "Add Contribution"}
                   </Button>
                 </div>
