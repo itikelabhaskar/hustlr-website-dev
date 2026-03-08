@@ -1,5 +1,5 @@
 // pages/admin/index.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -28,6 +28,7 @@ type VettingStageFilter = VettingStage | "all";
 type DecisionStatus = "accepted" | "rejected" | "pending";
 type DecisionStatusFilter = DecisionStatus | "all";
 type SnapshotStage = VettingStage | "accepted" | "rejected";
+type BulkDecision = Extract<DecisionStatus, "accepted" | "rejected">;
 
 const DECISION_STATUS_LABELS: Record<DecisionStatus, string> = {
   accepted: "Approved",
@@ -230,7 +231,7 @@ function getDecisionSummary(application: SupabaseVettingData): string {
     .trim()
     .toLowerCase();
 
-  const sourceLabel = source === "admin_override" ? "Admin Override" : "Algorithm";
+  const sourceLabel = source === "admin_override" ? "Manual Override" : "Algorithm";
   return status === "accepted"
     ? `${sourceLabel} Approved`
     : `${sourceLabel} Rejected`;
@@ -302,6 +303,12 @@ export default function AdminPanel({
     DEFAULT_RESUME_SCREENING_CONFIG.threshold
   );
   const [loading, setLoading] = useState(true);
+  const [selectedApplicantEmails, setSelectedApplicantEmails] = useState<
+    Set<string>
+  >(new Set());
+  const [bulkActionInProgress, setBulkActionInProgress] =
+    useState<BulkDecision | null>(null);
+  const selectAllVisibleRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -378,6 +385,52 @@ export default function AdminPanel({
       );
     });
   }, [applications, stageFilter, decisionFilter, universityFilter, searchTerm]);
+
+  const visibleApplicantEmails = useMemo(
+    () =>
+      filtered
+        .map((app) => app.email)
+        .filter((value): value is string => Boolean(value)),
+    [filtered]
+  );
+
+  useEffect(() => {
+    const visibleSet = new Set(visibleApplicantEmails);
+    setSelectedApplicantEmails((prev) => {
+      const next = new Set<string>();
+      prev.forEach((item) => {
+        if (visibleSet.has(item)) {
+          next.add(item);
+        }
+      });
+
+      if (next.size === prev.size) {
+        return prev;
+      }
+      return next;
+    });
+  }, [visibleApplicantEmails]);
+
+  const selectedVisibleCount = useMemo(
+    () =>
+      visibleApplicantEmails.reduce(
+        (count, applicantEmail) =>
+          selectedApplicantEmails.has(applicantEmail) ? count + 1 : count,
+        0
+      ),
+    [visibleApplicantEmails, selectedApplicantEmails]
+  );
+
+  const allVisibleSelected =
+    visibleApplicantEmails.length > 0 &&
+    selectedVisibleCount === visibleApplicantEmails.length;
+  const someVisibleSelected =
+    selectedVisibleCount > 0 && selectedVisibleCount < visibleApplicantEmails.length;
+
+  useEffect(() => {
+    if (!selectAllVisibleRef.current) return;
+    selectAllVisibleRef.current.indeterminate = someVisibleSelected;
+  }, [someVisibleSelected]);
 
   const metrics = useMemo(() => {
     const now = Date.now();
@@ -488,6 +541,115 @@ export default function AdminPanel({
     setDecisionFilter("all");
     setUniversityFilter("all");
     setSearchTerm("");
+  };
+
+  const toggleApplicantSelection = (applicantEmail: string) => {
+    setSelectedApplicantEmails((prev) => {
+      const next = new Set(prev);
+      if (next.has(applicantEmail)) {
+        next.delete(applicantEmail);
+      } else {
+        next.add(applicantEmail);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (shouldSelect: boolean) => {
+    setSelectedApplicantEmails((prev) => {
+      const next = new Set(prev);
+      visibleApplicantEmails.forEach((applicantEmail) => {
+        if (shouldSelect) {
+          next.add(applicantEmail);
+        } else {
+          next.delete(applicantEmail);
+        }
+      });
+      return next;
+    });
+  };
+
+  const applyBulkDecisionLocally = (
+    targetEmails: string[],
+    decisionStatus: BulkDecision
+  ) => {
+    const targetSet = new Set(targetEmails);
+    const decisionUpdatedAt = new Date().toISOString();
+
+    setApplications((prev) =>
+      prev.map((app) => {
+        if (!targetSet.has(app.email)) return app;
+        return {
+          ...app,
+          status: decisionStatus,
+          currentStage: 3,
+          decisionStatus,
+          decisionSource: "admin_override",
+          current_stage: decisionStatus,
+          stage_status: decisionStatus,
+          decision_status: decisionStatus,
+          decision_source: "admin_override",
+          resume_decision: decisionStatus,
+          decisionUpdatedAt,
+          decisionUpdatedBy: email,
+        };
+      })
+    );
+  };
+
+  const runBulkDecision = async (decisionStatus: BulkDecision) => {
+    const targetEmails = Array.from(selectedApplicantEmails);
+    if (targetEmails.length === 0) {
+      toast.error("Select at least one applicant first");
+      return;
+    }
+
+    const label = decisionStatus === "accepted" ? "Accept" : "Reject";
+    const shouldContinue = window.confirm(
+      `Apply "${label}" to ${targetEmails.length} selected applicant${
+        targetEmails.length === 1 ? "" : "s"
+      }? This will set Stage Status to ${label}ed and Decision Source to Manual Override.`
+    );
+    if (!shouldContinue) return;
+
+    setBulkActionInProgress(decisionStatus);
+    try {
+      const response = await fetch("/api/admin/bulkUpdateApplicationStatus", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+        body: JSON.stringify({
+          emails: targetEmails,
+          decisionStatus,
+        }),
+      });
+
+      const json = await response.json();
+      if (!response.ok) {
+        toast.error(json.error || "Failed to apply bulk action");
+        return;
+      }
+
+      if (json.warning) {
+        toast.warning(json.warning);
+      }
+
+      applyBulkDecisionLocally(targetEmails, decisionStatus);
+      setSelectedApplicantEmails(new Set());
+
+      const updatedCount =
+        typeof json.updatedCount === "number" ? json.updatedCount : targetEmails.length;
+      toast.success(
+        `${label}ed ${updatedCount} applicant${updatedCount === 1 ? "" : "s"}`
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to apply bulk action");
+    } finally {
+      setBulkActionInProgress(null);
+    }
   };
 
   return (
@@ -766,13 +928,64 @@ export default function AdminPanel({
                   <p className="text-[11px] text-[#747474]">
                     Showing {filtered.length} of {applications.length} applicants
                   </p>
+
+                  {selectedApplicantEmails.size > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-[#d5d5d5] bg-[#ececec] p-2.5 text-[11px]">
+                      <p className="mr-1 text-[#303030]">
+                        Bulk Actions: {selectedApplicantEmails.size} selected
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => runBulkDecision("accepted")}
+                        disabled={bulkActionInProgress !== null}
+                        className="rounded-[7px] border border-[#bfcbb1] bg-[#e4f2d7] px-3 py-1 text-[#314321] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {bulkActionInProgress === "accepted"
+                          ? "Accepting..."
+                          : "Accept"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runBulkDecision("rejected")}
+                        disabled={bulkActionInProgress !== null}
+                        className="rounded-[7px] border border-[#d5b8b8] bg-[#f7e5e5] px-3 py-1 text-[#5e2d2d] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {bulkActionInProgress === "rejected"
+                          ? "Rejecting..."
+                          : "Reject"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toast.info(
+                            "Bulk Move Stage is available in the action bar and will be wired in the next update."
+                          )
+                        }
+                        disabled={bulkActionInProgress !== null}
+                        className="rounded-[7px] border border-[#d0d0d0] bg-[#f2f2f2] px-3 py-1 text-[#4d4d4d] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Move Stage
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full min-w-[980px] border-collapse text-left">
                     <thead>
                       <tr className="text-[10px] text-[#222222]">
-                        <th className="w-7 border-b border-[#d4d4d4] pb-2"></th>
+                        <th className="w-7 border-b border-[#d4d4d4] pb-2">
+                          <input
+                            ref={selectAllVisibleRef}
+                            type="checkbox"
+                            checked={allVisibleSelected}
+                            onChange={(event) =>
+                              toggleSelectAllVisible(event.target.checked)
+                            }
+                            aria-label="Select all visible applicants"
+                            className="h-3.5 w-3.5 rounded border border-[#c7c7c7] bg-transparent"
+                          />
+                        </th>
                         <th className="border-b border-[#d4d4d4] pb-2 pr-3 font-medium">
                           Name
                         </th>
@@ -797,7 +1010,7 @@ export default function AdminPanel({
                         <th className="border-b border-[#d4d4d4] pb-2 pr-3 font-medium">
                           Decision
                           <p className="text-[8.5px] font-normal text-[#6f6f6f]">
-                            pending, algo approved, admin override
+                            pending, algo approved, manual override
                           </p>
                         </th>
                         <th className="border-b border-[#d4d4d4] pb-2 pr-3 font-medium">
@@ -820,11 +1033,18 @@ export default function AdminPanel({
                         filtered.map((app, index) => (
                           <tr
                             key={`${app.email}-${index}`}
-                            className="border-b border-[#dfdfdf] text-[10.5px] text-[#2f2f2f]"
+                            className={`border-b border-[#dfdfdf] text-[10.5px] text-[#2f2f2f] ${
+                              selectedApplicantEmails.has(app.email)
+                                ? "bg-[#ebeff1]"
+                                : "bg-transparent"
+                            }`}
                           >
                             <td className="py-2">
                               <input
                                 type="checkbox"
+                                checked={selectedApplicantEmails.has(app.email)}
+                                onChange={() => toggleApplicantSelection(app.email)}
+                                aria-label={`Select ${app.name || app.email}`}
                                 className="h-3.5 w-3.5 rounded border border-[#c7c7c7] bg-transparent"
                               />
                             </td>
