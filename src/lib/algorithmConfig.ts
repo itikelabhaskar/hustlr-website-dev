@@ -1,92 +1,84 @@
-export type ScreeningFactor = {
+export type ScoringFactor = {
   key: string;
   label: string;
   weight: number;
+  enabled: boolean;
   description: string;
 };
 
-export type ResumeScreeningConfig = {
+export type ScoringAlgorithmConfig = {
   threshold: number;
-  factors: ScreeningFactor[];
-  updatedAt?: string;
-  updatedBy?: string;
+  factors: ScoringFactor[];
+  totalWeight: number;
 };
 
-export const DEFAULT_RESUME_SCREENING_CONFIG: ResumeScreeningConfig = {
+/** Default scoring categories matching the scoring engine (scoring_config table). */
+export const DEFAULT_SCORING_CONFIG: ScoringAlgorithmConfig = {
   threshold: 75,
+  totalWeight: 180,
   factors: [
     {
-      key: "skills_depth",
-      label: "Skills Depth",
-      weight: 0.24,
-      description: "Core technical skills and proficiency level",
+      key: "open_source",
+      label: "Open Source",
+      weight: 35,
+      enabled: true,
+      description: "GitHub contributions, merged PRs, and open-source involvement",
     },
     {
-      key: "project_quality",
-      label: "Project Quality",
-      weight: 0.22,
+      key: "internships",
+      label: "Internships",
+      weight: 30,
+      enabled: true,
+      description: "Relevant internships, freelancing, and prior work experience",
+    },
+    {
+      key: "projects",
+      label: "Projects",
+      weight: 25,
+      enabled: true,
       description: "Impact, complexity, and quality of submitted projects",
     },
     {
-      key: "work_experience",
-      label: "Work Experience",
-      weight: 0.16,
-      description: "Relevant internships, freelancing, and prior roles",
+      key: "hackathons",
+      label: "Hackathons",
+      weight: 20,
+      enabled: true,
+      description: "Hackathon participation, wins, and recognitions",
     },
     {
-      key: "academic_performance",
-      label: "Academic Performance",
-      weight: 0.14,
-      description: "CGPA and academic consistency",
+      key: "research",
+      label: "Research",
+      weight: 20,
+      enabled: true,
+      description: "Research papers, publications, and field relevance",
     },
     {
-      key: "communication_signal",
-      label: "Communication Signal",
-      weight: 0.12,
-      description: "Profile clarity and articulation",
+      key: "cp_platform",
+      label: "CP Platform Rating",
+      weight: 15,
+      enabled: true,
+      description: "Competitive programming platform ratings (Codeforces, LeetCode, etc.)",
     },
     {
-      key: "consistency_signal",
-      label: "Consistency Signal",
-      weight: 0.12,
-      description: "Cross-field consistency and verification confidence",
+      key: "cp_competitions",
+      label: "CP Competitions",
+      weight: 15,
+      enabled: true,
+      description: "Performance in competitive programming contests (ICPC, IOI, etc.)",
+    },
+    {
+      key: "skills",
+      label: "Skills",
+      weight: 10,
+      enabled: true,
+      description: "Core technical skills and proficiency breadth",
+    },
+    {
+      key: "cgpa",
+      label: "CGPA",
+      weight: 10,
+      enabled: true,
+      description: "Academic performance and CGPA",
     },
   ],
 };
-
-export function normalizeResumeScreeningConfig(
-  rawConfig: unknown
-): ResumeScreeningConfig {
-  if (!rawConfig || typeof rawConfig !== "object") {
-    return DEFAULT_RESUME_SCREENING_CONFIG;
-  }
-
-  const config = rawConfig as Partial<ResumeScreeningConfig>;
-  const threshold =
-    typeof config.threshold === "number" && Number.isFinite(config.threshold)
-      ? Math.max(0, Math.min(100, Math.round(config.threshold)))
-      : DEFAULT_RESUME_SCREENING_CONFIG.threshold;
-
-  const factors = Array.isArray(config.factors)
-    ? config.factors
-        .filter(
-          (factor): factor is ScreeningFactor =>
-            !!factor &&
-            typeof factor === "object" &&
-            typeof (factor as ScreeningFactor).key === "string" &&
-            typeof (factor as ScreeningFactor).label === "string" &&
-            typeof (factor as ScreeningFactor).weight === "number"
-        )
-        .map((factor) => ({
-          ...factor,
-          weight: Number(factor.weight),
-        }))
-    : DEFAULT_RESUME_SCREENING_CONFIG.factors;
-
-  return {
-    threshold,
-    factors: factors.length > 0 ? factors : DEFAULT_RESUME_SCREENING_CONFIG.factors,
-    updatedAt: config.updatedAt,
-    updatedBy: config.updatedBy,
-  };
-}

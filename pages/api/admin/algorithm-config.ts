@@ -2,46 +2,18 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyToken } from "@/src/lib/jwt";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import {
-  DEFAULT_RESUME_SCREENING_CONFIG,
-  ResumeScreeningConfig,
-  ScreeningFactor,
-  normalizeResumeScreeningConfig,
+  DEFAULT_SCORING_CONFIG,
+  ScoringFactor,
 } from "@/src/lib/algorithmConfig";
 
-let inMemoryConfig: ResumeScreeningConfig | null = null;
 const ADMIN_EMAIL = (
   process.env.ADMIN_EMAIL || "admin@hustlr.local"
 ).toLowerCase();
 
-function isMissingTableError(message?: string): boolean {
-  if (!message) return false;
-  return /relation .* does not exist|schema cache/i.test(message);
-}
-
-function validateAndNormalizeFactors(input: unknown): ScreeningFactor[] | null {
-  if (!Array.isArray(input)) return null;
-  const factors = input
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const factor = item as Partial<ScreeningFactor>;
-      if (
-        typeof factor.key !== "string" ||
-        typeof factor.label !== "string" ||
-        typeof factor.weight !== "number" ||
-        typeof factor.description !== "string"
-      ) {
-        return null;
-      }
-      return {
-        key: factor.key.trim(),
-        label: factor.label.trim(),
-        description: factor.description.trim(),
-        weight: Number(factor.weight),
-      };
-    })
-    .filter(Boolean) as ScreeningFactor[];
-
-  return factors.length > 0 ? factors : null;
+/** Map of category key → label + description from defaults */
+const FACTOR_META: Record<string, { label: string; description: string }> = {};
+for (const f of DEFAULT_SCORING_CONFIG.factors) {
+  FACTOR_META[f.key] = { label: f.label, description: f.description };
 }
 
 export default async function handler(
@@ -75,83 +47,122 @@ export default async function handler(
       .json({ success: false, error: "Invalid or expired token" });
   }
 
+  // ─── GET: read from scoring_config table ───
   if (req.method === "GET") {
     const { data, error } = await supabaseAdmin
-      .from("admin_algorithm_config")
-      .select("*")
-      .eq("id", 1)
-      .single();
+      .from("scoring_config")
+      .select("category, weight, enabled")
+      .order("weight", { ascending: false });
 
     if (error) {
-      if (isMissingTableError(error.message)) {
-        return res.status(200).json({
-          success: true,
-          source: "memory",
-          warning:
-            "DB table admin_algorithm_config is missing. Using in-memory config.",
-          config: inMemoryConfig || DEFAULT_RESUME_SCREENING_CONFIG,
-        });
-      }
       return res.status(500).json({ success: false, error: error.message });
     }
 
-    const config = normalizeResumeScreeningConfig({
-      threshold: data.threshold,
-      factors: data.factors,
-      updatedAt: data.updated_at,
-      updatedBy: data.updated_by,
-    });
+    const factors: ScoringFactor[] = (data || []).map((row) => ({
+      key: row.category,
+      label: FACTOR_META[row.category]?.label || row.category,
+      weight: Number(row.weight),
+      enabled: row.enabled,
+      description:
+        FACTOR_META[row.category]?.description || "",
+    }));
 
-    return res.status(200).json({ success: true, source: "database", config });
-  }
-
-  if (req.method === "POST") {
-    const threshold =
-      typeof req.body?.threshold === "number" ? req.body.threshold : NaN;
-    const factors = validateAndNormalizeFactors(req.body?.factors);
-    if (!Number.isFinite(threshold) || !factors) {
-      return res.status(400).json({
-        success: false,
-        error: "threshold and factors are required",
-      });
-    }
-
-    const nextConfig: ResumeScreeningConfig = {
-      threshold: Math.max(0, Math.min(100, Math.round(threshold))),
-      factors,
-      updatedAt: new Date().toISOString(),
-      updatedBy: payload.email,
-    };
-
-    const { error } = await supabaseAdmin.from("admin_algorithm_config").upsert(
-      {
-        id: 1,
-        threshold: nextConfig.threshold,
-        factors: nextConfig.factors,
-        updated_at: nextConfig.updatedAt,
-        updated_by: nextConfig.updatedBy,
-      },
-      { onConflict: "id" }
-    );
-
-    if (error) {
-      if (isMissingTableError(error.message)) {
-        inMemoryConfig = nextConfig;
-        return res.status(200).json({
-          success: true,
-          source: "memory",
-          warning:
-            "DB table admin_algorithm_config is missing. Config saved in memory for this server session.",
-          config: nextConfig,
-        });
-      }
-      return res.status(500).json({ success: false, error: error.message });
-    }
+    const totalWeight = factors
+      .filter((f) => f.enabled)
+      .reduce((sum, f) => sum + f.weight, 0);
 
     return res.status(200).json({
       success: true,
       source: "database",
-      config: nextConfig,
+      config: {
+        threshold: DEFAULT_SCORING_CONFIG.threshold,
+        factors,
+        totalWeight,
+      },
+    });
+  }
+
+  // ─── POST: write weights to scoring_config table ───
+  if (req.method === "POST") {
+    const { factors } = req.body;
+
+    if (!Array.isArray(factors) || factors.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "factors array is required",
+      });
+    }
+
+    // Validate
+    for (const f of factors) {
+      if (!f.key || !FACTOR_META[f.key]) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid category: ${f.key}`,
+        });
+      }
+      const weight = Number(f.weight);
+      if (!Number.isFinite(weight) || weight < 0 || weight > 200) {
+        return res.status(400).json({
+          success: false,
+          error: `Weight for ${f.key} must be between 0 and 200`,
+        });
+      }
+    }
+
+    // Update each row in scoring_config
+    const errors: string[] = [];
+    for (const f of factors) {
+      const { error } = await supabaseAdmin
+        .from("scoring_config")
+        .update({
+          weight: Math.round(Number(f.weight)),
+          enabled: f.weight > 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("category", f.key);
+
+      if (error) errors.push(`${f.key}: ${error.message}`);
+    }
+
+    if (errors.length > 0) {
+      return res
+        .status(500)
+        .json({ success: false, error: errors.join("; ") });
+    }
+
+    // Return updated config
+    const { data, error: fetchError } = await supabaseAdmin
+      .from("scoring_config")
+      .select("category, weight, enabled")
+      .order("weight", { ascending: false });
+
+    if (fetchError) {
+      return res
+        .status(500)
+        .json({ success: false, error: fetchError.message });
+    }
+
+    const updatedFactors: ScoringFactor[] = (data || []).map((row) => ({
+      key: row.category,
+      label: FACTOR_META[row.category]?.label || row.category,
+      weight: Number(row.weight),
+      enabled: row.enabled,
+      description: FACTOR_META[row.category]?.description || "",
+    }));
+
+    const totalWeight = updatedFactors
+      .filter((f) => f.enabled)
+      .reduce((sum, f) => sum + f.weight, 0);
+
+    return res.status(200).json({
+      success: true,
+      source: "database",
+      config: {
+        threshold: DEFAULT_SCORING_CONFIG.threshold,
+        factors: updatedFactors,
+        totalWeight,
+      },
     });
   }
 

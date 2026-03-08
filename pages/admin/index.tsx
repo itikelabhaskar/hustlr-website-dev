@@ -15,7 +15,7 @@ import { verifyToken } from "@/src/lib/jwt";
 import { useRouter } from "next/router";
 import AlgorithmConfigPanel from "@/src/components/admin/AlgorithmConfigPanel";
 import { ScoreBadge } from "@/src/components/admin/ScoreBreakdown";
-import { DEFAULT_RESUME_SCREENING_CONFIG } from "@/src/lib/algorithmConfig";
+import { DEFAULT_SCORING_CONFIG } from "@/src/lib/algorithmConfig";
 import {
   ArrowUpDown,
   BriefcaseBusiness,
@@ -303,7 +303,7 @@ export default function AdminPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [showAlgorithmPanel, setShowAlgorithmPanel] = useState(false);
   const [stage1Threshold, setStage1Threshold] = useState(
-    DEFAULT_RESUME_SCREENING_CONFIG.threshold
+    DEFAULT_SCORING_CONFIG.threshold
   );
   const [loading, setLoading] = useState(true);
   const [scoreFilter, setScoreFilter] = useState<string>("all");
