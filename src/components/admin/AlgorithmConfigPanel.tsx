@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  DEFAULT_RESUME_SCREENING_CONFIG,
-  ResumeScreeningConfig,
-  ScreeningFactor,
+  DEFAULT_SCORING_CONFIG,
+  ScoringAlgorithmConfig,
+  ScoringFactor,
 } from "@/src/lib/algorithmConfig";
 import { toast } from "sonner";
 
@@ -17,12 +17,11 @@ export default function AlgorithmConfigPanel({
   isOpen: boolean;
   onThresholdChange?: (value: number) => void;
 }) {
-  const [config, setConfig] = useState<ResumeScreeningConfig>(
-    DEFAULT_RESUME_SCREENING_CONFIG
+  const [config, setConfig] = useState<ScoringAlgorithmConfig>(
+    DEFAULT_SCORING_CONFIG
   );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [warning, setWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -30,7 +29,6 @@ export default function AlgorithmConfigPanel({
     let isMounted = true;
     const loadConfig = async () => {
       setLoading(true);
-      setWarning(null);
       try {
         const response = await fetch("/api/admin/algorithm-config", {
           headers: { Authorization: `Bearer ${jwtToken}` },
@@ -40,11 +38,7 @@ export default function AlgorithmConfigPanel({
           throw new Error(json.error || "Failed to load algorithm config");
         }
         if (!isMounted) return;
-        setConfig(json.config || DEFAULT_RESUME_SCREENING_CONFIG);
-        if (json.warning) {
-          setWarning(json.warning);
-          toast.warning(json.warning);
-        }
+        setConfig(json.config || DEFAULT_SCORING_CONFIG);
       } catch (error: any) {
         if (!isMounted) return;
         toast.error(error?.message || "Failed to load algorithm config");
@@ -62,7 +56,7 @@ export default function AlgorithmConfigPanel({
   const totalWeight = useMemo(
     () =>
       config.factors.reduce(
-        (sum: number, factor: ScreeningFactor) => sum + Number(factor.weight || 0),
+        (sum: number, factor: ScoringFactor) => sum + Number(factor.weight || 0),
         0
       ),
     [config.factors]
@@ -73,7 +67,7 @@ export default function AlgorithmConfigPanel({
       ...prev,
       factors: prev.factors.map((factor) =>
         factor.key === key
-          ? { ...factor, weight: Number.isFinite(value) ? value : 0 }
+          ? { ...factor, weight: Number.isFinite(value) ? Math.round(value) : 0 }
           : factor
       ),
     }));
@@ -81,7 +75,6 @@ export default function AlgorithmConfigPanel({
 
   const applyChanges = async () => {
     setSaving(true);
-    setWarning(null);
     try {
       const response = await fetch("/api/admin/algorithm-config", {
         method: "POST",
@@ -90,10 +83,9 @@ export default function AlgorithmConfigPanel({
           Authorization: `Bearer ${jwtToken}`,
         },
         body: JSON.stringify({
-          threshold: Number(config.threshold),
           factors: config.factors.map((factor) => ({
-            ...factor,
-            weight: Number(factor.weight),
+            key: factor.key,
+            weight: Math.round(Number(factor.weight)),
           })),
         }),
       });
@@ -102,12 +94,7 @@ export default function AlgorithmConfigPanel({
         throw new Error(json.error || "Failed to update algorithm config");
       }
       setConfig(json.config || config);
-      if (json.warning) {
-        setWarning(json.warning);
-        toast.warning(json.warning);
-      } else {
-        toast.success("Algorithm config updated successfully.");
-      }
+      toast.success("Scoring weights updated. Re-score applicants to apply.");
       if (onThresholdChange && typeof json.config?.threshold === "number") {
         onThresholdChange(json.config.threshold);
       }
@@ -125,42 +112,17 @@ export default function AlgorithmConfigPanel({
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-[0.05em] text-[#2f2f2f]">
-            Resume Screening Algorithm
+            Scoring Algorithm Weights
           </h2>
           <p className="text-xs text-[#747474] mt-1">
-            Changes apply only to future applicants. Existing records are not
-            auto-updated.
+            Adjust category weights (whole numbers). Re-score applicants after
+            saving to apply changes.
           </p>
-          {warning ? (
-            <p className="mt-1 text-xs text-amber-700">{warning}</p>
-          ) : null}
-        </div>
-
-        <div className="min-w-[220px]">
-          <p className="mb-1 text-[11px] uppercase tracking-[0.04em] text-[#666]">
-            Resume Screening Threshold
-          </p>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={config.threshold}
-            onChange={(e) =>
-              setConfig((prev) => ({
-                ...prev,
-                threshold: Math.max(
-                  0,
-                  Math.min(100, Number(e.target.value || prev.threshold))
-                ),
-              }))
-            }
-            className="h-9 bg-white text-sm"
-          />
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-[#747474]">Loading algorithm factors...</p>
+        <p className="text-sm text-[#747474]">Loading scoring config...</p>
       ) : (
         <div className="space-y-3">
           {config.factors.map((factor) => (
@@ -180,8 +142,9 @@ export default function AlgorithmConfigPanel({
                 </p>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={0}
+                  max={200}
                   value={factor.weight}
                   onChange={(e) =>
                     updateFactorWeight(
@@ -204,22 +167,33 @@ export default function AlgorithmConfigPanel({
           Total Weight:{" "}
           <span
             className={
-              Math.abs(totalWeight - 1) < 0.001
+              totalWeight > 0
                 ? "text-emerald-700 font-semibold"
                 : "text-amber-700 font-semibold"
             }
           >
-            {totalWeight.toFixed(2)}
+            {totalWeight}
           </span>
         </p>
-        <Button
-          type="button"
-          onClick={applyChanges}
-          disabled={saving || loading || Math.abs(totalWeight - 1) >= 0.001}
-          className="text-sm"
-        >
-          {saving ? "Applying..." : "Apply Changes"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfig(DEFAULT_SCORING_CONFIG)}
+            disabled={saving || loading}
+            className="text-sm"
+          >
+            Set to Default
+          </Button>
+          <Button
+            type="button"
+            onClick={applyChanges}
+            disabled={saving || loading || totalWeight <= 0}
+            className="text-sm"
+          >
+            {saving ? "Applying..." : "Apply Changes"}
+          </Button>
+        </div>
       </div>
     </section>
   );
