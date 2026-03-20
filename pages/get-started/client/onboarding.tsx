@@ -162,7 +162,7 @@ export default function ClientOnboardingPage() {
             <div className="mt-10 flex w-full max-w-xs flex-col gap-4">
               <Button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/get-started/client/job-post")}
                 className="h-11 rounded-2xl bg-black text-base text-white hover:bg-black/90"
                 style={{
                   fontFamily:
