@@ -46,6 +46,7 @@ export default function ClientOnboardingPage() {
   const [companySize, setCompanySize] = useState("");
   const [country, setCountry] = useState("");
   const [description, setDescription] = useState("");
+  const [studentWorkReason, setStudentWorkReason] = useState("");
   const [viewState, setViewState] = useState<"form" | "loading" | "success">("form");
 
   function validateOnboardingForm() {
@@ -309,6 +310,18 @@ export default function ClientOnboardingPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={`Briefly explain what your company does
 Ex: We are a fintech startup building tools that help small businesses manage payments.`}
+                  rows={3}
+                  className="min-h-[84px] resize-none rounded-md border border-black/25 bg-slate-50 py-2 text-sm font-sans text-black"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-black">Why should students work with you?</label>
+                <Textarea
+                  value={studentWorkReason}
+                  onChange={(e) => setStudentWorkReason(e.target.value)}
+                  placeholder={`Share what makes your company a great place for students to work.
+Ex: Students get ownership, mentorship from senior team members, and real impact on live projects.`}
                   rows={3}
                   className="min-h-[84px] resize-none rounded-md border border-black/25 bg-slate-50 py-2 text-sm font-sans text-black"
                 />
