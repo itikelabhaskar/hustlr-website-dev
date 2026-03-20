@@ -32,6 +32,7 @@ const BUDGET_MIN = 0;
 const BUDGET_MAX = 80000;
 const BUDGET_STEP = 500;
 const PREVIEW_DELAY_MS = 1800;
+const MAX_SKILLS = 20;
 
 export default function ClientJobPostPage() {
   const [view, setView] = useState<"form" | "loading" | "preview">("form");
@@ -84,6 +85,11 @@ export default function ClientJobPostPage() {
     const normalized = skillInput.trim();
     if (!normalized) {
       toast.error("Please enter a skill name.");
+      return;
+    }
+
+    if (skills.length >= MAX_SKILLS) {
+      toast.error("you can only add 20 skills for a project");
       return;
     }
 
