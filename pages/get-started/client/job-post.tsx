@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, ChevronsUpDown, Loader, MapPin, Plus, X } from "lucide-react";
+import { Check, ChevronsUpDown, Loader, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/src/lib/utils";
 
@@ -36,6 +36,12 @@ const PROJECT_CATEGORIES = [
   "Mobile Development",
   "AI/ML",
 ];
+
+const PROJECT_CATEGORY_SET = new Set(PROJECT_CATEGORIES);
+
+function isValidProjectCategory(value: string): value is (typeof PROJECT_CATEGORIES)[number] {
+  return PROJECT_CATEGORY_SET.has(value);
+}
 
 const SKILLS_BY_CATEGORY: Record<string, string[]> = {
   "Web Development": [
@@ -296,33 +302,21 @@ const BUDGET_STEP = 500;
 const PREVIEW_DELAY_MS = 1800;
 const PROJECT_SUBMITTED_REDIRECT_DELAY_MS = 2500;
 const MAX_SKILLS = 20;
-const CLIENT_PROFILE_STORAGE_KEY = "hustlr.client.profile";
+const JOB_POST_DRAFT_STORAGE_KEY = "hustlr.client.jobPostDraft";
 
-type ClientProfile = {
-  companyName: string;
-  website: string;
-  linkedin: string;
-  industry: string;
-  companySize: string;
-  country: string;
+type JobPostDraft = {
+  title: string;
+  category: string;
   description: string;
-  studentWorkReason: string;
-};
-
-const DEFAULT_CLIENT_PROFILE: ClientProfile = {
-  companyName: "Your Company",
-  website: "",
-  linkedin: "",
-  industry: "Business",
-  companySize: "",
-  country: "India",
-  description: "No company description added yet.",
-  studentWorkReason: "No response added yet.",
+  timelineEstimate: string;
+  deliverables: string;
+  budget: number;
+  skills: SkillItem[];
 };
 
 export default function ClientJobPostPage() {
   const router = useRouter();
-  const [view, setView] = useState<"form" | "loading" | "preview" | "submitted">("form");
+  const [view, setView] = useState<"form" | "loading" | "submitted">("form");
   const [step, setStep] = useState<1 | 2>(1);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -336,16 +330,14 @@ export default function ClientJobPostPage() {
   const [isRequirementDropdownOpen, setIsRequirementDropdownOpen] = useState(false);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | "">("");
   const [skills, setSkills] = useState<SkillItem[]>([]);
-  const [previewTab, setPreviewTab] = useState<"details" | "client">("details");
-  const [clientProfile, setClientProfile] = useState<ClientProfile>(DEFAULT_CLIENT_PROFILE);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const previewTimerRef = useRef<number | null>(null);
+  const routeTimerRef = useRef<number | null>(null);
   const submittedTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
-      if (previewTimerRef.current !== null) {
-        window.clearTimeout(previewTimerRef.current);
+      if (routeTimerRef.current !== null) {
+        window.clearTimeout(routeTimerRef.current);
       }
       if (submittedTimerRef.current !== null) {
         window.clearTimeout(submittedTimerRef.current);
@@ -354,16 +346,48 @@ export default function ClientJobPostPage() {
   }, []);
 
   useEffect(() => {
-    const rawProfile = window.localStorage.getItem(CLIENT_PROFILE_STORAGE_KEY);
-    if (!rawProfile) return;
+    const rawDraft = window.localStorage.getItem(JOB_POST_DRAFT_STORAGE_KEY);
+    if (!rawDraft) return;
 
     try {
-      const parsed = JSON.parse(rawProfile) as Partial<ClientProfile>;
-      setClientProfile((prev) => ({ ...prev, ...parsed }));
+      const parsed = JSON.parse(rawDraft) as Partial<JobPostDraft>;
+      if (typeof parsed.title === "string") setTitle(parsed.title);
+      if (typeof parsed.category === "string" && isValidProjectCategory(parsed.category)) {
+        setCategory(parsed.category);
+      }
+      if (typeof parsed.description === "string") setDescription(parsed.description);
+      if (typeof parsed.timelineEstimate === "string") setTimelineEstimate(parsed.timelineEstimate);
+      if (typeof parsed.deliverables === "string") setDeliverables(parsed.deliverables);
+      if (typeof parsed.budget === "number") setBudget(parsed.budget);
+      if (Array.isArray(parsed.skills)) {
+        const validSkills = parsed.skills.filter(
+          (item): item is SkillItem =>
+            typeof item?.name === "string" &&
+            (item?.level === "Required" || item?.level === "Good to have"),
+        );
+        setSkills(validSkills);
+      }
     } catch {
       // Keep defaults if parsing fails.
     }
   }, []);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.view === "submitted") {
+      setView("submitted");
+      scrollToTop();
+
+      if (submittedTimerRef.current !== null) {
+        window.clearTimeout(submittedTimerRef.current);
+      }
+
+      submittedTimerRef.current = window.setTimeout(() => {
+        void router.push("/admin");
+        submittedTimerRef.current = null;
+      }, PROJECT_SUBMITTED_REDIRECT_DELAY_MS);
+    }
+  }, [router, router.isReady, router.query.view]);
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -421,19 +445,14 @@ export default function ClientJobPostPage() {
   }
 
   function onCategoryChange(nextCategory: string) {
+    if (!isValidProjectCategory(nextCategory) || nextCategory === category) {
+      return;
+    }
+
     setCategory(nextCategory);
     setSelectedSkill("");
     setSkillSearchQuery("");
     setIsSkillDropdownOpen(false);
-
-    const categorySkills = new Set(SKILLS_BY_CATEGORY[nextCategory] ?? []);
-    setSkills((prev) => {
-      const filtered = prev.filter((skill) => categorySkills.has(skill.name));
-      if (filtered.length !== prev.length) {
-        toast.info("Skills were reset to match the selected project category.");
-      }
-      return filtered;
-    });
   }
 
   function removeSkill(index: number) {
@@ -469,18 +488,18 @@ export default function ClientJobPostPage() {
     setSkillLevel(value as SkillLevel);
   }
 
-  function onPostProject() {
-    setView("submitted");
-    scrollToTop();
+  function saveDraftToStorage() {
+    const draft: JobPostDraft = {
+      title: title.trim(),
+      category,
+      description: description.trim(),
+      timelineEstimate: timelineEstimate.trim(),
+      deliverables: deliverables.trim(),
+      budget,
+      skills,
+    };
 
-    if (submittedTimerRef.current !== null) {
-      window.clearTimeout(submittedTimerRef.current);
-    }
-
-    submittedTimerRef.current = window.setTimeout(() => {
-      void router.push("/admin");
-      submittedTimerRef.current = null;
-    }, PROJECT_SUBMITTED_REDIRECT_DELAY_MS);
+    window.localStorage.setItem(JOB_POST_DRAFT_STORAGE_KEY, JSON.stringify(draft));
   }
 
   function validateStepOne() {
@@ -533,31 +552,21 @@ export default function ClientJobPostPage() {
     }
 
     setIsSubmitting(true);
-    setPreviewTab("details");
     setView("loading");
 
-    if (previewTimerRef.current !== null) {
-      window.clearTimeout(previewTimerRef.current);
+    if (routeTimerRef.current !== null) {
+      window.clearTimeout(routeTimerRef.current);
     }
 
-    previewTimerRef.current = window.setTimeout(() => {
-      setView("preview");
+    saveDraftToStorage();
+
+    routeTimerRef.current = window.setTimeout(() => {
+      void router.push("/get-started/client/job-post-review");
       setIsSubmitting(false);
       toast.success("Project preview generated.");
-      previewTimerRef.current = null;
+      routeTimerRef.current = null;
     }, PREVIEW_DELAY_MS);
   }
-
-  const skillTags = useMemo(() => skills.slice(0, 3), [skills]);
-
-  const deliverableItems = useMemo(
-    () =>
-      deliverables
-        .split("\n")
-        .map((item) => item.replace(/^[-*•]\s*/, "").trim())
-        .filter(Boolean),
-    [deliverables],
-  );
 
   const formattedBudget = useMemo(() => new Intl.NumberFormat("en-IN").format(budget), [budget]);
 
@@ -591,135 +600,6 @@ export default function ClientJobPostPage() {
               <p className="mx-auto mt-8 max-w-[680px] font-sans text-lg text-black/75 sm:text-2xl">
                 We&apos;re formatting your project description so students can understand it clearly.
               </p>
-            </div>
-          </section>
-        )}
-
-        {view === "preview" && (
-          <section className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10 md:px-14 lg:px-20">
-            <h1 className="font-serif text-5xl font-normal tracking-tight text-black/90">Job Post Preview</h1>
-            <p className="mt-3 text-[1.2rem] font-semibold text-[#58b7ba]">
-              This is how your project will appear to students.
-            </p>
-
-            <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_220px]">
-              <article className="mx-auto w-full max-w-[700px] rounded-[10px] bg-[#e9e9e9] p-8 font-ovo text-black">
-                <h2 className="text-center text-5xl text-black/90">{title || "Untitled Project"}</h2>
-
-                <div className="mt-8 grid grid-cols-2 gap-6 text-center">
-                  <div>
-                    <p className="text-6xl leading-none">₹{formattedBudget}</p>
-                    <p className="text-5xl leading-tight">fixed price</p>
-                  </div>
-                  <div>
-                    <p className="text-6xl leading-none">{timelineEstimate || "4 weeks"}</p>
-                    <p className="text-5xl leading-tight">duration</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  {skillTags.map((skill) => (
-                    <span
-                      key={skill.name}
-                      className="rounded-md bg-[#8ecfd5] px-4 py-1 text-xs font-sans font-semibold text-white"
-                    >
-                      {skill.name}
-                    </span>
-                  ))}
-                  {!skillTags.length && (
-                    <span className="rounded-md bg-[#8ecfd5] px-4 py-1 text-xs font-sans font-semibold text-white">
-                      {category || "Project"}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mx-auto mt-6 flex w-[220px] overflow-hidden rounded-full bg-[#d6d6d6] font-sans text-xs font-semibold text-white">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTab("details")}
-                    className={`w-1/2 px-4 py-1 text-center transition-colors ${
-                      previewTab === "details" ? "bg-[#9a9a9a]" : "bg-transparent"
-                    }`}
-                  >
-                    Details
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTab("client")}
-                    className={`w-1/2 px-4 py-1 text-center transition-colors ${
-                      previewTab === "client" ? "bg-[#9a9a9a]" : "bg-transparent"
-                    }`}
-                  >
-                    Client
-                  </button>
-                </div>
-
-                {previewTab === "details" ? (
-                  <div className="mt-8 space-y-5 font-sans text-sm text-black/90">
-                    <section>
-                      <h3 className="font-ovo text-3xl text-black">Description</h3>
-                      <p className="mt-2 leading-relaxed text-black/80">{description}</p>
-                    </section>
-
-                    <section>
-                      <h3 className="font-ovo text-3xl text-black">Deliverables</h3>
-                      <ul className="mt-2 space-y-1 text-black/80">
-                        {(deliverableItems.length ? deliverableItems : ["Final project output", "Clean codebase", "Deployment notes"]).map((item) => (
-                          <li key={item}>• {item}</li>
-                        ))}
-                      </ul>
-                    </section>
-                  </div>
-                ) : (
-                  <div className="mt-8 space-y-5 font-sans text-sm text-black/90">
-                    <section className="text-center">
-                      <h3 className="font-ovo text-4xl text-black">{clientProfile.companyName || "Your Company"}</h3>
-                      <div className="mt-3 flex items-center justify-center gap-4 text-xs text-black/75">
-                        <span className="rounded-full bg-[#c8c8c8] px-3 py-1">
-                          {clientProfile.industry || "Business"}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {clientProfile.country || "India"}
-                        </span>
-                      </div>
-                    </section>
-
-                    <section>
-                      <h3 className="font-ovo text-3xl text-black">About Us</h3>
-                      <p className="mt-2 leading-relaxed text-black/80">
-                        {clientProfile.description || "No company description added yet."}
-                      </p>
-                    </section>
-
-                    <section>
-                      <h3 className="font-ovo text-3xl text-black">Why Work With Us?</h3>
-                      <p className="mt-2 whitespace-pre-line leading-relaxed text-black/80">
-                        {clientProfile.studentWorkReason || "No response added yet."}
-                      </p>
-                    </section>
-                  </div>
-                )}
-              </article>
-
-              <aside className="flex h-fit flex-col gap-3 lg:pt-1">
-                <Button
-                  type="button"
-                  onClick={onPostProject}
-                  className="h-10 rounded-lg bg-[#a9c165] text-sm font-semibold text-white hover:bg-[#95af57]"
-                >
-                  Post Project
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    goToStepOne();
-                  }}
-                  className="h-10 rounded-lg bg-[#a9a9a9] text-sm font-semibold text-white hover:bg-[#969696]"
-                >
-                  Edit Project
-                </Button>
-              </aside>
             </div>
           </section>
         )}
