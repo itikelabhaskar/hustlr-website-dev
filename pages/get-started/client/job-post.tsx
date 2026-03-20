@@ -14,7 +14,7 @@ import {
 import { Loader, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
-type SkillLevel = "Beginner" | "Intermediate" | "Advanced";
+type SkillLevel = "Required" | "Good to have";
 
 type SkillItem = {
   name: string;
@@ -27,7 +27,7 @@ const PROJECT_CATEGORIES = [
   "AI/ML",
 ];
 
-const LEVEL_OPTIONS: SkillLevel[] = ["Beginner", "Intermediate", "Advanced"];
+const LEVEL_OPTIONS: SkillLevel[] = ["Required", "Good to have"];
 const BUDGET_MIN = 0;
 const BUDGET_MAX = 80000;
 const BUDGET_STEP = 500;
@@ -88,7 +88,7 @@ export default function ClientJobPostPage() {
     }
 
     if (!skillLevel) {
-      toast.error("Please choose a proficiency level.");
+      toast.error("Please select the requirement level (Required or Good to have).");
       return;
     }
 
@@ -359,7 +359,7 @@ export default function ClientJobPostPage() {
                     <div className="space-y-3">
                       <label className="block text-sm font-semibold text-black">Required Skills</label>
                       <p className="text-[11px] text-[#7e8f4f]">
-                        Add the skills and minimum experience level students should have for this project.
+                        Add the skills and their requirement for the project.
                       </p>
 
                       {!!skills.length && (
@@ -407,7 +407,7 @@ export default function ClientJobPostPage() {
                           onValueChange={(value) => setSkillLevel(value as SkillLevel)}
                         >
                           <SelectTrigger className="h-9 w-full rounded-md border border-black/20 bg-[#e9e9e9] text-sm font-sans text-black sm:w-[190px]">
-                            <SelectValue placeholder="Choose Proficiency" />
+                            <SelectValue placeholder="Choose Requirement" />
                           </SelectTrigger>
                           <SelectContent>
                             {LEVEL_OPTIONS.map((level) => (
