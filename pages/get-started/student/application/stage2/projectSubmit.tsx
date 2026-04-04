@@ -63,7 +63,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req }) => {
   }
 };
 
-const projectSubmit = ({
+const ProjectSubmit = ({
   vettingProgressResponse,
   email,
   jwtToken,
@@ -72,6 +72,13 @@ const projectSubmit = ({
   email: string;
   jwtToken: string;
 }) => {
+  const missedDeadline = useMemo(() => {
+    if (!vettingProgressResponse.success) return false;
+    const now = new Date();
+    const deadline = new Date(vettingProgressResponse.data.projectDeadline!);
+    return isBefore(deadline, now);
+  }, [vettingProgressResponse]);
+
   if (!vettingProgressResponse.success) {
     return (
       <main className="pt-32 text-center text-red-600">
@@ -97,7 +104,7 @@ const projectSubmit = ({
           <h1 className="text-2xl font-bold">Submit Your Project</h1>
           <div className="">
             <p className="text-black text-base mb-4">
-              View your selected project's details:{" "}
+              View your selected project&apos;s details:{" "}
               {/* <Link
               href={`/get-started/student/application/stage2/projectInfo/${vettingProgressResponse.data.selectedProjectSanityId}`}
             >
@@ -114,32 +121,24 @@ const projectSubmit = ({
           </div>
           <Separator />
           <div className="mb-4 border py-2 bg-gray-50">
-            <CountdownTimer deadline={vettingData.projectDeadline} />
+            <CountdownTimer deadline={vettingData.projectDeadline!} />
           </div>
-          {useMemo(() => {
-            const now = new Date();
-            const deadline = new Date(vettingData.projectDeadline);
-            const missed = isBefore(deadline, now);
-
-            return missed ? (
-              <>
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md flex items-center gap-2">
-                  <AlertTriangle className="size-10" />
-                  <p className="text-sm font-medium">
-                    The deadline for project submission has passed. Please reach
-                    out to the support team if you believe this is a mistake or
-                    need assistance.
-                  </p>
-                </div>
-              </>
-            ) : (
-              <ProjectSubmissionForm email={email} jwtToken={jwtToken} />
-            );
-          }, [vettingData.projectDeadline])}
+          {missedDeadline ? (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md flex items-center gap-2">
+              <AlertTriangle className="size-10" />
+              <p className="text-sm font-medium">
+                The deadline for project submission has passed. Please reach
+                out to the support team if you believe this is a mistake or
+                need assistance.
+              </p>
+            </div>
+          ) : (
+            <ProjectSubmissionForm email={email} jwtToken={jwtToken} />
+          )}
         </div>
       </main>
     </>
   );
 };
 
-export default projectSubmit;
+export default ProjectSubmit;
