@@ -19,15 +19,16 @@ export default async function handler(
     });
   }
   const token = authHeader.split(" ")[1];
-  let payload: any;
+  let payload: Record<string, unknown> | string;
   try {
-    payload = verifyToken(token);
+    payload = verifyToken(token) as Record<string, unknown> | string;
     if (typeof payload === "string" || payload.role !== "admin") {
       return res
         .status(403)
         .json({ success: false, error: "Forbidden: Admin access required" });
     }
-  } catch (err) {
+  } catch (err: unknown) {
+    if(err) console.error(err);
     return res
       .status(401)
       .json({ success: false, error: "Invalid or expired token" });

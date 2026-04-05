@@ -28,20 +28,20 @@ export default async function handler(
     });
   }
 
-  let payload: any;
+  let payload: Record<string, unknown> | string;
   try {
-    payload = verifyToken(authHeader.split(" ")[1]);
-    const tokenEmail = String(payload?.email || "").toLowerCase();
-    if (
-      typeof payload === "string" ||
-      payload.role !== "admin" ||
-      tokenEmail !== ADMIN_EMAIL
-    ) {
-      return res
-        .status(403)
-        .json({ success: false, error: "Forbidden: Admin access required" });
+    payload = verifyToken(authHeader.split(" ")[1]) as Record<string, unknown> | string;
+    
+    if (typeof payload === "string" || payload.role !== "admin") {
+      return res.status(403).json({ success: false, error: "Forbidden: Admins only" });
     }
-  } catch {
+
+    const tokenEmail = String(payload.email || "").toLowerCase();
+    if (tokenEmail !== ADMIN_EMAIL) {
+      return res.status(403).json({ success: false, error: "Forbidden: Admins only" });
+    }
+  } catch (err: unknown) {
+    if(err) console.error(err);
     return res
       .status(401)
       .json({ success: false, error: "Invalid or expired token" });

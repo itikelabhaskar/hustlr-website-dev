@@ -36,20 +36,24 @@ export default async function handler(
   }
 
   const token = authHeader.split(" ")[1];
-  let payload: any;
+  let payload: Record<string, unknown> | string;
   try {
-    payload = verifyToken(token);
-    const tokenEmail = String(payload?.email || "").toLowerCase();
-    if (
-      typeof payload === "string" ||
-      payload.role !== "admin" ||
-      tokenEmail !== ADMIN_EMAIL
-    ) {
+    payload = verifyToken(token) as Record<string, unknown> | string;
+    
+    if (typeof payload === "string" || payload.role !== "admin") {
       return res
         .status(403)
         .json({ success: false, error: "Forbidden: Admin access required" });
     }
-  } catch (err) {
+
+    const tokenEmail = String(payload.email || "").toLowerCase();
+    if (tokenEmail !== ADMIN_EMAIL) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Forbidden: Admin access required" });
+    }
+  } catch (err: unknown) {
+    if(err) console.error(err);
     return res
       .status(401)
       .json({ success: false, error: "Invalid or expired token" });

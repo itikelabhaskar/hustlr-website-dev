@@ -168,9 +168,6 @@ interface TestResult {
   score: CategoryScore;
 }
 
-function assertRange(actual: number, min: number, max: number): boolean {
-  return actual >= min && actual <= max;
-}
 
 function assertExact(actual: number, expected: number): boolean {
   return actual === expected;
