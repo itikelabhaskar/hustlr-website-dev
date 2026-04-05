@@ -31,7 +31,7 @@ export default async function handler(
     return res.status(404).json({ status: "not_found", email });
   }
 
-  let status: ApplicationStatus = data.status;
+  const status: ApplicationStatus = data.status;
   // if (data.isComplete && data.isAccepted && !data.isUnderReview)
   //   status = "accepted";
   // else if (data.isComplete && data.isRejected && !data.isUnderReview)

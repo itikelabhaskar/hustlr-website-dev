@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import MagneticButton from "./MagneticButton";
+import Link from "next/link";
 
 const CtaSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -126,7 +127,7 @@ const CtaSection = () => {
           style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
         >
           Access a talent network so exclusive, so thoroughly vetted, so
-          powerful — that once you're in, you never look elsewhere.
+          powerful — that once you&apos;re in, you never look elsewhere.
         </p>
 
         {/* Buttons */}
@@ -135,22 +136,22 @@ const CtaSection = () => {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5"
         >
           <MagneticButton strength={0.22}>
-            <a
+            <Link
               href="/get-started?type=client"
               className="inline-block w-full sm:w-auto px-9 py-4 bg-white text-[#111] font-semibold rounded-full text-sm sm:text-base tracking-wide hover:bg-[#62ABAC] hover:text-white transition-colors duration-300 opacity-0"
               style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
             >
               Access Elite Talent
-            </a>
+            </Link>
           </MagneticButton>
           <MagneticButton strength={0.22}>
-            <a
+            <Link
               href="/get-started?type=student"
               className="inline-block w-full sm:w-auto px-9 py-4 border border-white/25 text-white font-semibold rounded-full text-sm sm:text-base tracking-wide hover:border-white/60 hover:bg-white/5 transition-all duration-300 opacity-0"
               style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
             >
               Apply for the Top 5%
-            </a>
+            </Link>
           </MagneticButton>
         </div>
 

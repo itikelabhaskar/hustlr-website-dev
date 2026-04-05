@@ -9,7 +9,7 @@ export default function HeroSection() {
         transition={{ duration: 0.8 }}
         className="text-5xl font-heading mb-4 tracking-tight"
       >
-        India's #1 Platform to Hire Vetted Student Talent.
+        India&apos;s #1 Platform to Hire Vetted Student Talent.
       </motion.h1>
       <motion.h2
         initial={{ opacity: 0, y: 40 }}

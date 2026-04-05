@@ -447,7 +447,7 @@ const HomepageHero = () => {
           ref={ctaRef}
           className="flex flex-col sm:flex-row items-start sm:items-center gap-4"
         >
-          <a
+          <Link
             href="/get-started?type=client"
             className="hero-btn inline-block px-8 py-[14px] bg-white text-[#0e0e0e] font-semibold rounded-full text-sm tracking-wide hover:bg-[#62ABAC] hover:text-white hover:scale-[1.04] hover:shadow-[0_0_28px_rgba(98,171,172,0.4)] transition-all duration-300"
             style={{
@@ -456,8 +456,8 @@ const HomepageHero = () => {
             }}
           >
             Access Elite Talent
-          </a>
-          <a
+          </Link>
+          <Link
             href="/get-started?type=student"
             className="hero-btn inline-block px-8 py-[14px] border border-white/25 text-white font-semibold rounded-full text-sm tracking-wide hover:border-white/60 hover:bg-white/[0.06] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] transition-all duration-300"
             style={{
@@ -466,7 +466,7 @@ const HomepageHero = () => {
             }}
           >
             Apply for the Top 5%
-          </a>
+          </Link>
         </div>
 
         {/* Social proof dots */}

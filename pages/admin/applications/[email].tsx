@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { createToken, verifyToken } from "@/src/lib/jwt";
 import {
   ScoreSectionProvider,
@@ -79,9 +80,9 @@ export default function ProjectInfoPage({
       <main className="py-32 bg-white">
         <div className="max-w-screen-lg mx-auto">
           <Button asChild variant={"outline"} className="m-5">
-            <a href="/admin/" className="flex items-center gap-2 font-sans">
+            <Link href="/admin/" className="flex items-center gap-2 font-sans">
               <ArrowLeft /> Back to Applications
-            </a>
+            </Link>
           </Button>
           <ScoreSectionProvider
             email={res.data.email}
