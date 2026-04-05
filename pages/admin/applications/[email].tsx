@@ -29,12 +29,18 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
   const payload = verifyToken(adminJwtToken as string);
 
-  const tokenEmail = String((payload as any)?.email || "").toLowerCase();
-  if (
-    typeof payload === "string" ||
-    payload.role !== "admin" ||
-    tokenEmail !== adminEmail
-  ) {
+  if (typeof payload === "string" || payload.role !== "admin") {
+    return {
+      redirect: {
+        destination: "/admin/login",
+        permanent: false,
+      },
+    };
+  }
+
+  const tokenEmail = String({ ...payload }.email || "").toLowerCase();
+  
+  if (tokenEmail !== adminEmail) {
     return {
       redirect: {
         destination: "/admin/login",

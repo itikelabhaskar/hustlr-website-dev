@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+  import { useCallback, useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -36,7 +36,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   cgpa: "CGPA",
 };
 
-export async function getServerSideProps(context: any) {
+export async function getServerSideProps(context: import('next').GetServerSidePropsContext) {
   const { req } = context;
   const token = req.cookies?.session;
   if (!token) {
@@ -63,7 +63,7 @@ export default function ScoringConfigPage({
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  const fetchConfigs = async () => {
+  const fetchConfigs = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/scoringConfig", {
         headers: { Authorization: `Bearer ${jwtToken}` },
@@ -79,11 +79,11 @@ export default function ScoringConfigPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [jwtToken]);
 
   useEffect(() => {
     fetchConfigs();
-  }, []);
+  }, [fetchConfigs]);
 
   const totalWeight = configs
     .filter((c) => c.enabled)

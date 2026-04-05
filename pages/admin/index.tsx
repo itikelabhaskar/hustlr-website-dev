@@ -37,12 +37,6 @@ type DecisionStatusFilter = DecisionStatus | "all";
 type SnapshotStage = VettingStage | "accepted" | "rejected";
 type BulkDecision = Extract<DecisionStatus, "accepted" | "rejected">;
 
-const DECISION_STATUS_LABELS: Record<DecisionStatus, string> = {
-  accepted: "Approved",
-  rejected: "Rejected",
-  pending: "Pending",
-};
-
 const TEST_PROJECT_STATUSES = new Set([
   "round_2_eligible",
   "round_2_project_selected",
@@ -69,13 +63,13 @@ function normalizeStage(raw: unknown): VettingStage | null {
 }
 
 function getVettingStage(application: SupabaseVettingData, stage1Threshold?: number): VettingStage {
-  const explicitStage = normalizeStage((application as any).current_stage);
+  const explicitStage = normalizeStage((application as Record<string, unknown>).current_stage);
 
   // Check if this applicant has been approved (algo or admin)
   const isApproved = (() => {
     // Admin override accepted
     const source = String(
-      (application as any).decision_source ||
+      (application as Record<string, unknown>).decision_source ||
       application.decisionSource ||
       ""
     ).trim().toLowerCase();
@@ -131,14 +125,14 @@ function isApplicationIncomplete(application: SupabaseVettingData): boolean {
   const status = String(application.status || "")
     .trim()
     .toLowerCase();
-  const isComplete = (application as any).isComplete;
+  const isComplete = (application as Record<string, unknown>).isComplete;
 
   return status === "not_completed" || isComplete === false;
 }
 
 function getDecisionStatus(application: SupabaseVettingData): DecisionStatus {
   const explicitDecision =
-    String((application as any).decision_status || application.decisionStatus || "")
+    String((application as Record<string, unknown>).decision_status || application.decisionStatus || "")
       .trim()
       .toLowerCase();
 
@@ -151,34 +145,7 @@ function getDecisionStatus(application: SupabaseVettingData): DecisionStatus {
   return "pending";
 }
 
-function getStageNumber(application: SupabaseVettingData): number {
-  const stage = getSnapshotStage(application);
-  if (stage === "application_submitted" || stage === "resume_screening") {
-    return 1;
-  }
-  return 2;
-}
 
-function getSnapshotStage(application: SupabaseVettingData): SnapshotStage {
-  const explicitCurrentStage = String((application as any).current_stage || "")
-    .trim()
-    .toLowerCase();
-
-  if (
-    explicitCurrentStage === "application_submitted" ||
-    explicitCurrentStage === "resume_screening" ||
-    explicitCurrentStage === "test_project" ||
-    explicitCurrentStage === "accepted" ||
-    explicitCurrentStage === "rejected"
-  ) {
-    return explicitCurrentStage as SnapshotStage;
-  }
-
-  const decision = getDecisionStatus(application);
-  if (decision === "accepted") return "accepted";
-  if (decision === "rejected") return "rejected";
-  return getVettingStage(application);
-}
 
 function formatRole(category?: string): string {
   if (!category || !category.trim()) {
@@ -193,10 +160,10 @@ function formatRole(category?: string): string {
 
 function getApplicationDateRaw(application: SupabaseVettingData) {
   return (
-    (application as any).applicationDate ||
-    (application as any).createdAt ||
-    (application as any).created_at ||
-    (application as any).updated_at
+    (application as Record<string, unknown>).applicationDate ||
+    (application as Record<string, unknown>).createdAt ||
+    (application as Record<string, unknown>).created_at ||
+    (application as Record<string, unknown>).updated_at
   );
 }
 
@@ -229,60 +196,15 @@ function formatApplicationDate(application: SupabaseVettingData): string {
 
 function getResumeScoreValue(application: SupabaseVettingData): number | null {
   const score =
-    (application as any).resume_score ??
+    (application as Record<string, unknown>).resume_score ??
     application.resumeScore ??
-    (application as any).screeningScore ??
+    (application as Record<string, unknown>).screeningScore ??
     null;
   const parsed = Number(score);
   return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
 }
 
-function getResumeDecisionStatus(application: SupabaseVettingData): DecisionStatus {
-  const explicit = String(
-    (application as any).resume_decision ||
-    (application as any).resumeDecision ||
-    application.algorithmDecision ||
-    ""
-  )
-    .trim()
-    .toLowerCase();
 
-  if (explicit === "accepted") return "accepted";
-  if (explicit === "rejected") return "rejected";
-  if (explicit === "pending") return "pending";
-
-  const fallbackStatus = String(application.status || "")
-    .trim()
-    .toLowerCase();
-  if (
-    fallbackStatus === "round_2_eligible" ||
-    fallbackStatus === "round_2_project_selected" ||
-    fallbackStatus === "round_2_under_review" ||
-    fallbackStatus === "accepted"
-  ) {
-    return "accepted";
-  }
-  if (fallbackStatus === "rejected") {
-    return "rejected";
-  }
-  return "pending";
-}
-
-function getDecisionSummary(application: SupabaseVettingData): string {
-  const status = getDecisionStatus(application);
-  if (status === "pending") return "Pending";
-
-  const source = String(
-    (application as any).decision_source || application.decisionSource || "algorithm"
-  )
-    .trim()
-    .toLowerCase();
-
-  const sourceLabel = source === "admin_override" ? "Manual Override" : "Algorithm";
-  return status === "accepted"
-    ? `${sourceLabel} Approved`
-    : `${sourceLabel} Rejected`;
-}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-IN").format(value);
@@ -292,7 +214,7 @@ function formatPercent(value: number): string {
   return `${Math.max(0, Math.round(value))}%`;
 }
 
-export async function getServerSideProps(context: any) {
+export async function getServerSideProps(context: import('next').GetServerSidePropsContext) {
   const { req } = context;
   const token = req.cookies?.session;
   const adminEmail = (
@@ -308,10 +230,11 @@ export async function getServerSideProps(context: any) {
     };
   }
 
-  let payload: any = null;
+  let payload: Record<string, unknown> | null = null;
   try {
-    payload = verifyToken(token);
-  } catch (err) {
+    payload = verifyToken(token) as Record<string, unknown>;
+  } catch (err: unknown) {
+    if (err) console.error(err);
     return {
       redirect: {
         destination: "/admin/login",
@@ -378,7 +301,7 @@ export default function AdminPanel({
   const toggleCard = (idx: number) =>
     setExpandedCards((prev) => {
       const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
+      if (next.has(idx)) { next.delete(idx); } else { next.add(idx); }
       return next;
     });
   const selectAllVisibleRef = useRef<HTMLInputElement | null>(null);
@@ -557,7 +480,7 @@ export default function AdminPanel({
     applications.forEach((app) => {
       // Compute the true decision outcome based on score/threshold or admin override
       let decisionBucket: "pending" | "accepted" | "rejected" = "pending";
-      const source = String((app as any).decision_source || app.decisionSource || "").trim().toLowerCase();
+      const source = String((app as Record<string, unknown>).decision_source || app.decisionSource || "").trim().toLowerCase();
       const isManual =
         source === "admin_override" ||
         app.status === "accepted" ||
@@ -622,7 +545,7 @@ export default function AdminPanel({
       }
 
       const testProjectStatus = String(
-        (app as any).test_project_status || (app as any).testProjectStatus || ""
+        (app as Record<string, unknown>).test_project_status || (app as Record<string, unknown>).testProjectStatus || ""
       )
         .trim()
         .toLowerCase();
@@ -762,7 +685,7 @@ export default function AdminPanel({
 
         return {
           ...app,
-          status: newStatus as any,
+          status: newStatus,
           currentStage: newStage,
           decisionStatus,
           decisionSource: "admin_override",
@@ -1425,7 +1348,7 @@ export default function AdminPanel({
                             <td className="py-2 pr-3">
                               {(() => {
                                 const source = String(
-                                  (app as any).decision_source ||
+                                  (app as Record<string, unknown>).decision_source ||
                                   app.decisionSource ||
                                   ""
                                 ).trim().toLowerCase();
