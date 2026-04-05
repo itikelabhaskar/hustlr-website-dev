@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 function MobileMenu({
   isOpen,
@@ -34,27 +35,27 @@ function MobileMenu({
         </svg>
       </button>
       <nav className="flex flex-col gap-6 mt-12">
-        <a
+        <Link
           href="/"
           className="text-white/90 hover:text-white transition text-lg font-normal"
           onClick={onClose}
         >
           home
-        </a>
-        <a
+        </Link>
+        <Link
           href="/top5"
           className="text-white/90 hover:text-white transition text-lg font-normal"
           onClick={onClose}
         >
           top 5<span style={{ fontFamily: "'Ovo', serif" }}>%</span>
-        </a>
-        <a
+        </Link>
+        <Link
           href="/get-started"
           className="text-white/90 hover:text-white transition text-lg font-normal"
           onClick={onClose}
         >
           get started
-        </a>
+        </Link>
       </nav>
     </motion.div>
   );

@@ -1,12 +1,8 @@
-import { Separator } from "@/components/ui/separator";
 import Nav from "@/src/components/Nav";
-import { CheckCircle, Clock10 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/router";
+import { Clock10 } from "lucide-react";
 import React from "react";
 
 const VerifiyEmail = () => {
-  const router = useRouter();
 
   return (
     <>

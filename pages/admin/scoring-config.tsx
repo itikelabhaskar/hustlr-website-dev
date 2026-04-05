@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import Nav from "@/src/components/Nav";
@@ -156,14 +157,13 @@ export default function ScoringConfigPage({
       <main className="bg-white min-h-screen pt-32">
         <div className="p-10 max-w-screen-md mx-auto">
           <Button asChild variant="outline" className="mb-4">
-            <a
-              href="/admin/"
-              className="flex items-center gap-2 font-sans"
-            >
-              <ArrowLeft className="size-4" /> Back to Applications
-            </a>
+              <Link
+                href="/admin/"
+                className="flex items-center gap-2 font-sans"
+              >
+                <ArrowLeft className="size-4" /> Back to Applications
+              </Link>
           </Button>
-
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Scoring Configuration</CardTitle>

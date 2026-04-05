@@ -76,7 +76,7 @@ const Nav = () => {
         </nav>
 
         {/* Desktop CTA */}
-        <a
+        <Link
           href="/get-started"
           className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-white/20 text-white text-xs font-medium tracking-wide hover:border-white/50 hover:bg-white/5 transition-all duration-300"
           style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
@@ -95,7 +95,7 @@ const Nav = () => {
               d="M17 8l4 4m0 0l-4 4m4-4H3"
             />
           </svg>
-        </a>
+        </Link>
 
         {/* Mobile hamburger */}
         <button
