@@ -86,7 +86,26 @@ export default function ApplicationHomepage({
   exists: boolean;
   vettingProgressResponse: GetVettingProgressResponse | null;
 }) {
-  if (!vettingProgressResponse?.success) {
+  const router = useRouter();
+
+  let vettingData = undefined;
+  let currentStage = 1;
+  let status = undefined;
+  
+  if (vettingProgressResponse?.success) {
+    vettingData = vettingProgressResponse.data;
+    currentStage = vettingData.currentStage || 1;
+    status = vettingData.status;
+  }
+
+  const isMissedR2Deadline = useMemo(() => {
+    if (!vettingData?.projectDeadline) return false;
+    const now = new Date();
+    const deadline = new Date(vettingData.projectDeadline);
+    return isBefore(deadline, now);
+  }, [vettingData?.projectDeadline]);
+
+  if (!vettingProgressResponse?.success || !vettingData) {
     return (
       <>
         <Nav />
@@ -97,15 +116,6 @@ export default function ApplicationHomepage({
       </>
     );
   }
-
-  const vettingData = vettingProgressResponse.data;
-  const { currentStage = 1, status } = vettingData;
-  // const { currentStage = 1, status } = {
-  //   currentStage: 2,
-  //   status: "round_2_under_review",
-  // };
-
-  const router = useRouter();
 
   return (
     <>
@@ -170,7 +180,7 @@ export default function ApplicationHomepage({
                 Stage {currentStage}: &nbsp; Your application is under review
               </AlertTitle>
               <AlertDescription className="font-sans text-base">
-                You've completed the first stage. Please wait while we review
+                You&apos;ve completed the first stage. Please wait while we review
                 your details.
                 <div className="mt-5">
                   <Link
@@ -201,40 +211,32 @@ export default function ApplicationHomepage({
 
                   {/* Countdown Timer */}
                   <div className="mb-4">
-                    <CountdownTimer deadline={vettingData.projectDeadline} />
+                    <CountdownTimer deadline={vettingData.projectDeadline!} />
                   </div>
 
                   {/* Deadline check */}
-                  {useMemo(() => {
-                    const now = new Date();
-                    const deadline = new Date(vettingData.projectDeadline);
-                    const missed = isBefore(deadline, now);
-
-                    return missed ? (
-                      <>
-                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md flex items-center gap-2">
-                          <AlertTriangle className="w-5 h-5" />
-                          <p className="text-sm font-medium">
-                            The deadline for project submission has passed.
-                            Please reach out to the support team if you believe
-                            this is a mistake or need assistance.
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Link
-                          href={
-                            "/get-started/student/application/stage2/projectSubmit"
-                          }
-                          className="font-sans font-medium text-sm px-3 py-2 border border-teal-600/10 bg-teal-500/20 hover:bg-teal-500/30 transition-colors rounded flex items-center justify-center gap-2"
-                        >
-                          Stage 2 Submission / Details
-                          <ArrowRight className="size-5" />
-                        </Link>
-                      </>
-                    );
-                  }, [vettingData.projectDeadline])}
+                  {isMissedR2Deadline ? (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5" />
+                      <p className="text-sm font-medium">
+                        The deadline for project submission has passed.
+                        Please reach out to the support team if you believe
+                        this is a mistake or need assistance.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <Link
+                        href={
+                          "/get-started/student/application/stage2/projectSubmit"
+                        }
+                        className="font-sans font-medium text-sm px-3 py-2 border border-teal-600/10 bg-teal-500/20 hover:bg-teal-500/30 transition-colors rounded flex items-center justify-center gap-2"
+                      >
+                        Stage 2 Submission / Details
+                        <ArrowRight className="size-5" />
+                      </Link>
+                    </>
+                  )}
 
                   <Link
                     href={`/get-started/student/application/stage2/projectInfo/${vettingProgressResponse.data.selectedProjectSanityId}`}
