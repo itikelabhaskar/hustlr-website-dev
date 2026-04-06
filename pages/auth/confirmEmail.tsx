@@ -39,7 +39,7 @@ const ConfirmEmail = () => {
               Email Confirmed
             </h1>
             <p className="mt-2 text-base text-black">
-              Thanks! Your email has been successfully verified. You'll be
+              Thanks! Your email has been successfully verified. You&apos;ll be
               redirected shortly.
             </p>
             <div className="mt-6 flex justify-center">
