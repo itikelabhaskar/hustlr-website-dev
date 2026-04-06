@@ -84,7 +84,7 @@ export default async function handler(
       ? Array.from(
           new Set(
             json
-              .map((item: any) => String(item?.name || "").trim())
+              .map((item: Record<string, unknown>) => String(item?.name || "").trim())
               .filter((name: string) => name.length > 0)
           )
         )

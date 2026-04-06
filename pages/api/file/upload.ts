@@ -14,7 +14,7 @@ export const config = {
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-const parseForm = (req: NextApiRequest): Promise<{ fields: any; files: any }> =>
+const parseForm = (req: NextApiRequest): Promise<{ fields: Record<string, unknown>; files: Record<string, unknown> }> =>
   new Promise((resolve, reject) => {
     const form = formidable({ multiples: false, maxFileSize: MAX_FILE_SIZE });
     form.parse(req, (err, fields, files) => {
@@ -90,8 +90,8 @@ export default async function handler(
     }
 
     return res.status(200).json({ success: true, pathInBucket });
-  } catch (err: any) {
-    console.error("Unexpected upload error:", err);
+  } catch (err: unknown) {
+    if(err) console.error("Unexpected upload error:", err);
     return res.status(500).json({ error: "Unexpected error" });
   }
 }

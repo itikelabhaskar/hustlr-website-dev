@@ -5,9 +5,7 @@ import {
   getVettingProgress,
   updateVettingData,
 } from "@/src/lib/vettingUtils";
-import { sanity } from "@/sanity/lib/client";
-import groq from "groq";
-import { Stage2Data, Stage2ProjectSubmit } from "@/src/lib/schemas/formSchema";
+import { Stage2ProjectSubmit } from "@/src/lib/schemas/formSchema";
 
 export default async function handler(
   req: NextApiRequest,

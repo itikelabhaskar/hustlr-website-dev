@@ -26,8 +26,8 @@ export default async function handler(
     const payload = verifyToken(token);
     email = typeof payload === "string" ? "" : payload.email;
     if (!email) throw new Error("Invalid JWT payload");
-  } catch (err) {
-    return res.status(401).json({ error: "Invalid or expired token" });
+  } catch (err: unknown) {
+    if (err) console.error(err); return res.status(401).json({ error: "Invalid or expired token" });
   }
 
   const filePath = path as string;
@@ -65,8 +65,8 @@ export default async function handler(
         size: Number(metadata[0].metadata?.size) || 0,
       },
     });
-  } catch (err) {
-    console.error("Error in getFileMeta:", err);
+  } catch (err: unknown) {
+    if(err) console.error("Error in getFileMeta:", err);
     return res.status(500).json({ error: "Failed to retrieve file metadata" });
   }
 }
