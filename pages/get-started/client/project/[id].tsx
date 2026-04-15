@@ -213,28 +213,76 @@ function starredStorageKey(clientEmail: string, projectId: string) {
   return `client-starred:${clientEmail}:${projectId}`;
 }
 
+const SKILL_SYNONYM_MAP: Record<string, string> = {
+  js: "javascript",
+  ts: "typescript",
+  node: "nodejs",
+  "node.js": "nodejs",
+  reactjs: "react",
+  "next.js": "nextjs",
+  "express.js": "express",
+  "c plus plus": "cpp",
+  "c++": "cpp",
+  "c sharp": "csharp",
+  "c#": "csharp",
+  "machine learning": "ml",
+  "artificial intelligence": "ai",
+};
+
 function normalizeSkillValue(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[()\[\],/\\|]/g, " ")
+    .replace(/\s+/g, " ");
+  return SKILL_SYNONYM_MAP[normalized] ?? normalized;
 }
 
-function extractJobSkillNames(skills: JobPost["skills"]): string[] {
+function canonicalSkillValue(value: string): string {
+  return normalizeSkillValue(value).replace(/[^a-z0-9]/g, "");
+}
+
+function readSkillName(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value;
+  if (!value || typeof value !== "object") return null;
+
+  const record = value as Record<string, unknown>;
+  const possible = [record.name, record.skill, record.title, record.value];
+  for (const candidate of possible) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function extractJobSkillNames(skills: unknown): string[] {
   if (!Array.isArray(skills)) return [];
   return skills
-    .map((skill) => {
-      if (typeof skill === "string") return skill;
-      return skill?.name;
-    })
+    .map((skill) => readSkillName(skill))
     .filter((name): name is string => typeof name === "string" && name.trim().length > 0);
 }
 
 function extractStudentSkillNames(student: StudentRow): string[] {
   if (!Array.isArray(student.skills)) return [];
   return student.skills
-    .map((skill) => {
-      if (typeof skill === "string") return skill;
-      return skill?.skill;
-    })
+    .map((skill) => readSkillName(skill))
     .filter((name): name is string => typeof name === "string" && name.trim().length > 0);
+}
+
+function isSkillMatch(requiredSkill: string, candidateSkill: string): boolean {
+  const requiredCanonical = canonicalSkillValue(requiredSkill);
+  const candidateCanonical = canonicalSkillValue(candidateSkill);
+  if (!requiredCanonical || !candidateCanonical) return false;
+  if (requiredCanonical === candidateCanonical) return true;
+
+  // Allow close matches like "react" vs "reactjs", "node" vs "nodejs".
+  return (
+    requiredCanonical.length >= 4 &&
+    candidateCanonical.length >= 4 &&
+    (requiredCanonical.includes(candidateCanonical) ||
+      candidateCanonical.includes(requiredCanonical))
+  );
 }
 
 /* ───────── Component ───────── */
@@ -366,7 +414,7 @@ export default function ClientProjectPage({
 
   const normalizedProjectSkills = useMemo(() => {
     const names = extractJobSkillNames(project.skills);
-    return new Set(names.map((name) => normalizeSkillValue(name)));
+    return Array.from(new Set(names.map((name) => normalizeSkillValue(name))));
   }, [project.skills]);
 
   const skillMatchByEmail = useMemo(() => {
@@ -376,16 +424,18 @@ export default function ClientProjectPage({
     >();
 
     for (const student of students) {
-      const studentNormalizedSkills = new Set(
-        extractStudentSkillNames(student).map((name) => normalizeSkillValue(name))
+      const studentNormalizedSkills = Array.from(
+        new Set(extractStudentSkillNames(student).map((name) => normalizeSkillValue(name)))
       );
 
-      const matchCount = Array.from(normalizedProjectSkills).reduce(
-        (count, skill) => count + (studentNormalizedSkills.has(skill) ? 1 : 0),
-        0
-      );
+      const matchCount = normalizedProjectSkills.reduce((count, requiredSkill) => {
+        const hasMatch = studentNormalizedSkills.some((candidateSkill) =>
+          isSkillMatch(requiredSkill, candidateSkill)
+        );
+        return count + (hasMatch ? 1 : 0);
+      }, 0);
 
-      const totalRequired = normalizedProjectSkills.size;
+      const totalRequired = normalizedProjectSkills.length;
       const matchPercent =
         totalRequired > 0 ? Math.round((matchCount / totalRequired) * 100) : 0;
 
@@ -674,7 +724,7 @@ export default function ClientProjectPage({
               const isShortlisted = shortlistedEmails.has(student.email);
               const skillMatch = skillMatchByEmail.get(student.email) ?? {
                 matchCount: 0,
-                totalRequired: normalizedProjectSkills.size,
+                totalRequired: normalizedProjectSkills.length,
                 matchPercent: 0,
               };
               const skillsList = Array.isArray(student.skills)
