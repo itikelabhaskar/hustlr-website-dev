@@ -420,7 +420,13 @@ export default function ClientProjectPage({
   const skillMatchByEmail = useMemo(() => {
     const byEmail = new Map<
       string,
-      { matchCount: number; totalRequired: number; matchPercent: number }
+      {
+        matchCount: number;
+        totalRequired: number;
+        matchPercent: number;
+        matchedSkills: string[];
+        missingSkills: string[];
+      }
     >();
 
     for (const student of students) {
@@ -428,18 +434,29 @@ export default function ClientProjectPage({
         new Set(extractStudentSkillNames(student).map((name) => normalizeSkillValue(name)))
       );
 
-      const matchCount = normalizedProjectSkills.reduce((count, requiredSkill) => {
-        const hasMatch = studentNormalizedSkills.some((candidateSkill) =>
+      const matchedSkills = normalizedProjectSkills.filter((requiredSkill) =>
+        studentNormalizedSkills.some((candidateSkill) =>
           isSkillMatch(requiredSkill, candidateSkill)
-        );
-        return count + (hasMatch ? 1 : 0);
-      }, 0);
+        )
+      );
+
+      const missingSkills = normalizedProjectSkills.filter(
+        (requiredSkill) => !matchedSkills.includes(requiredSkill)
+      );
+
+      const matchCount = matchedSkills.length;
 
       const totalRequired = normalizedProjectSkills.length;
       const matchPercent =
         totalRequired > 0 ? Math.round((matchCount / totalRequired) * 100) : 0;
 
-      byEmail.set(student.email, { matchCount, totalRequired, matchPercent });
+      byEmail.set(student.email, {
+        matchCount,
+        totalRequired,
+        matchPercent,
+        matchedSkills,
+        missingSkills,
+      });
     }
 
     return byEmail;
@@ -726,6 +743,8 @@ export default function ClientProjectPage({
                 matchCount: 0,
                 totalRequired: normalizedProjectSkills.length,
                 matchPercent: 0,
+                matchedSkills: [],
+                missingSkills: [],
               };
               const skillsList = Array.isArray(student.skills)
                 ? student.skills.slice(0, 3)
@@ -833,6 +852,17 @@ export default function ClientProjectPage({
                       <p>
                         <span className="font-bold">Skill Match:</span>{" "}
                         {skillMatch.matchCount}/{skillMatch.totalRequired} ({skillMatch.matchPercent}%)
+                      </p>
+                      <p className="leading-relaxed">
+                        <span className="font-bold">Matched Skills:</span>{" "}
+                        {skillMatch.matchedSkills.length > 0
+                          ? `${skillMatch.matchedSkills.slice(0, 3).join(", ")}${skillMatch.matchedSkills.length > 3 ? ` +${skillMatch.matchedSkills.length - 3} more` : ""}`
+                          : "No direct skill overlap yet"}
+                      </p>
+                      <p className="leading-relaxed text-gray-500">
+                        {skillMatch.missingSkills.length > 0
+                          ? `Missing from project requirements: ${skillMatch.missingSkills.slice(0, 2).join(", ")}${skillMatch.missingSkills.length > 2 ? "..." : ""}`
+                          : "All listed project skills are covered"}
                       </p>
                       <p>
                         <span className="font-bold">
