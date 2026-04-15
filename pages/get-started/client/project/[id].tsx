@@ -424,6 +424,8 @@ export default function ClientProjectPage({
         matchCount: number;
         totalRequired: number;
         matchPercent: number;
+        resumeScore: number;
+        blendedScore: number;
         matchedSkills: string[];
         missingSkills: string[];
       }
@@ -449,11 +451,15 @@ export default function ClientProjectPage({
       const totalRequired = normalizedProjectSkills.length;
       const matchPercent =
         totalRequired > 0 ? Math.round((matchCount / totalRequired) * 100) : 0;
+      const resumeScore = student.final_score ?? 0;
+      const blendedScore = Math.round(matchPercent * 0.5 + resumeScore * 0.5);
 
       byEmail.set(student.email, {
         matchCount,
         totalRequired,
         matchPercent,
+        resumeScore,
+        blendedScore,
         matchedSkills,
         missingSkills,
       });
@@ -472,6 +478,10 @@ export default function ClientProjectPage({
         : students;
 
     return [...filtered].sort((a, b) => {
+      const aBlended = skillMatchByEmail.get(a.email)?.blendedScore ?? 0;
+      const bBlended = skillMatchByEmail.get(b.email)?.blendedScore ?? 0;
+      if (bBlended !== aBlended) return bBlended - aBlended;
+
       const aMatches = skillMatchByEmail.get(a.email)?.matchCount ?? 0;
       const bMatches = skillMatchByEmail.get(b.email)?.matchCount ?? 0;
       if (bMatches !== aMatches) return bMatches - aMatches;
@@ -743,6 +753,8 @@ export default function ClientProjectPage({
                 matchCount: 0,
                 totalRequired: normalizedProjectSkills.length,
                 matchPercent: 0,
+                resumeScore: student.final_score ?? 0,
+                blendedScore: Math.round((student.final_score ?? 0) * 0.5),
                 matchedSkills: [],
                 missingSkills: [],
               };
@@ -798,7 +810,7 @@ export default function ClientProjectPage({
                             {student.name || "Unknown Student"}
                           </h3>
                           <span className="shrink-0 text-[13px] font-semibold text-[#5FB3B3]">
-                            {formatScore(student.final_score)} score
+                            {formatScore(skillMatch.blendedScore)} final score
                           </span>
                         </div>
                         <p className="mt-0.5 max-w-full text-[13px] font-semibold text-gray-700 break-words [overflow-wrap:anywhere]">
@@ -853,6 +865,18 @@ export default function ClientProjectPage({
                         <span className="font-bold">Skill Match:</span>{" "}
                         {skillMatch.matchCount}/{skillMatch.totalRequired} ({skillMatch.matchPercent}%)
                       </p>
+                      <p>
+                        <span className="font-bold">Skill Match Score (50%):</span>{" "}
+                        {formatScore(skillMatch.matchPercent)}
+                      </p>
+                      <p>
+                        <span className="font-bold">Resume Score (50%):</span>{" "}
+                        {formatScore(skillMatch.resumeScore)}
+                      </p>
+                      <p>
+                        <span className="font-bold">Final Candidate Score:</span>{" "}
+                        {formatScore(skillMatch.blendedScore)}
+                      </p>
                       <p className="leading-relaxed">
                         <span className="font-bold">Matched Skills:</span>{" "}
                         {skillMatch.matchedSkills.length > 0
@@ -880,20 +904,16 @@ export default function ClientProjectPage({
                         <span className="font-bold">Reliability:</span>{" "}
                         <span
                           className={
-                            student.final_score != null &&
-                            student.final_score >= 70
+                            skillMatch.blendedScore >= 70
                               ? "text-[#5FB3B3]"
-                              : student.final_score != null &&
-                                student.final_score >= 40
+                              : skillMatch.blendedScore >= 40
                               ? "text-[#d4a017]"
                               : "text-gray-500"
                           }
                         >
-                          {student.final_score != null &&
-                          student.final_score >= 70
+                          {skillMatch.blendedScore >= 70
                             ? "High"
-                            : student.final_score != null &&
-                              student.final_score >= 40
+                            : skillMatch.blendedScore >= 40
                             ? "Medium"
                             : "Low"}
                         </span>
