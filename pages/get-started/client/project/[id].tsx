@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import {
   Star,
   Settings,
@@ -213,6 +213,30 @@ function starredStorageKey(clientEmail: string, projectId: string) {
   return `client-starred:${clientEmail}:${projectId}`;
 }
 
+function normalizeSkillValue(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function extractJobSkillNames(skills: JobPost["skills"]): string[] {
+  if (!Array.isArray(skills)) return [];
+  return skills
+    .map((skill) => {
+      if (typeof skill === "string") return skill;
+      return skill?.name;
+    })
+    .filter((name): name is string => typeof name === "string" && name.trim().length > 0);
+}
+
+function extractStudentSkillNames(student: StudentRow): string[] {
+  if (!Array.isArray(student.skills)) return [];
+  return student.skills
+    .map((skill) => {
+      if (typeof skill === "string") return skill;
+      return skill?.skill;
+    })
+    .filter((name): name is string => typeof name === "string" && name.trim().length > 0);
+}
+
 /* ───────── Component ───────── */
 
 export default function ClientProjectPage({
@@ -340,13 +364,58 @@ export default function ClientProjectPage({
 
   const projectName = project.title || "Project Name";
 
+  const normalizedProjectSkills = useMemo(() => {
+    const names = extractJobSkillNames(project.skills);
+    return new Set(names.map((name) => normalizeSkillValue(name)));
+  }, [project.skills]);
+
+  const skillMatchByEmail = useMemo(() => {
+    const byEmail = new Map<
+      string,
+      { matchCount: number; totalRequired: number; matchPercent: number }
+    >();
+
+    for (const student of students) {
+      const studentNormalizedSkills = new Set(
+        extractStudentSkillNames(student).map((name) => normalizeSkillValue(name))
+      );
+
+      const matchCount = Array.from(normalizedProjectSkills).reduce(
+        (count, skill) => count + (studentNormalizedSkills.has(skill) ? 1 : 0),
+        0
+      );
+
+      const totalRequired = normalizedProjectSkills.size;
+      const matchPercent =
+        totalRequired > 0 ? Math.round((matchCount / totalRequired) * 100) : 0;
+
+      byEmail.set(student.email, { matchCount, totalRequired, matchPercent });
+    }
+
+    return byEmail;
+  }, [students, normalizedProjectSkills]);
+
   /* Filter students by tab */
-  const displayStudents =
-    activeFilter === "starred"
-      ? students.filter((s) => starredEmails.has(s.email))
-      : activeFilter === "shortlisted"
-      ? students.filter((s) => shortlistedEmails.has(s.email))
-      : students;
+  const displayStudents = useMemo(() => {
+    const filtered =
+      activeFilter === "starred"
+        ? students.filter((s) => starredEmails.has(s.email))
+        : activeFilter === "shortlisted"
+        ? students.filter((s) => shortlistedEmails.has(s.email))
+        : students;
+
+    return [...filtered].sort((a, b) => {
+      const aMatches = skillMatchByEmail.get(a.email)?.matchCount ?? 0;
+      const bMatches = skillMatchByEmail.get(b.email)?.matchCount ?? 0;
+      if (bMatches !== aMatches) return bMatches - aMatches;
+
+      const aScore = a.final_score ?? -1;
+      const bScore = b.final_score ?? -1;
+      if (bScore !== aScore) return bScore - aScore;
+
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }, [activeFilter, students, starredEmails, shortlistedEmails, skillMatchByEmail]);
 
   /* Filter sidebar projects by search */
   const sidebarProjects = allProjects.filter((p) => {
@@ -603,6 +672,11 @@ export default function ClientProjectPage({
               const rank = idx + 1;
               const isStarred = starredEmails.has(student.email);
               const isShortlisted = shortlistedEmails.has(student.email);
+              const skillMatch = skillMatchByEmail.get(student.email) ?? {
+                matchCount: 0,
+                totalRequired: normalizedProjectSkills.size,
+                matchPercent: 0,
+              };
               const skillsList = Array.isArray(student.skills)
                 ? student.skills.slice(0, 3)
                 : [];
@@ -708,7 +782,7 @@ export default function ClientProjectPage({
                     <div className="mt-4 max-w-full space-y-1 text-[12px] text-gray-700 break-words [overflow-wrap:anywhere]">
                       <p>
                         <span className="font-bold">Skill Match:</span>{" "}
-                        {formatScore(student.final_score)}
+                        {skillMatch.matchCount}/{skillMatch.totalRequired} ({skillMatch.matchPercent}%)
                       </p>
                       <p>
                         <span className="font-bold">
