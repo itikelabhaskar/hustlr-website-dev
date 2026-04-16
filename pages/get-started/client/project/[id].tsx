@@ -213,6 +213,10 @@ function starredStorageKey(clientEmail: string, projectId: string) {
   return `client-starred:${clientEmail}:${projectId}`;
 }
 
+function scoreWeightsStorageKey(clientEmail: string) {
+  return `client-score-weights:${clientEmail}`;
+}
+
 const SKILL_SYNONYM_MAP: Record<string, string> = {
   js: "javascript",
   ts: "typescript",
@@ -310,6 +314,8 @@ export default function ClientProjectPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [skillWeight, setSkillWeight] = useState(50);
+  const [resumeWeight, setResumeWeight] = useState(50);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -331,6 +337,49 @@ export default function ClientProjectPage({
       setShortlistedEmails(new Set());
     }
   }, [clientEmail, project.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(scoreWeightsStorageKey(clientEmail));
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { skillWeight?: number; resumeWeight?: number };
+      const nextSkill = Number(parsed.skillWeight);
+      const nextResume = Number(parsed.resumeWeight);
+      if (
+        Number.isFinite(nextSkill) &&
+        Number.isFinite(nextResume) &&
+        nextSkill >= 0 &&
+        nextResume >= 0 &&
+        Math.round(nextSkill + nextResume) === 100
+      ) {
+        setSkillWeight(Math.round(nextSkill));
+        setResumeWeight(Math.round(nextResume));
+      }
+    } catch {
+      // ignore malformed persisted scoring weights
+    }
+  }, [clientEmail]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      scoreWeightsStorageKey(clientEmail),
+      JSON.stringify({ skillWeight, resumeWeight })
+    );
+  }, [clientEmail, skillWeight, resumeWeight]);
+
+  const updateSkillWeight = (value: number) => {
+    const nextSkill = Math.min(100, Math.max(0, Math.round(value)));
+    setSkillWeight(nextSkill);
+    setResumeWeight(100 - nextSkill);
+  };
+
+  const updateResumeWeight = (value: number) => {
+    const nextResume = Math.min(100, Math.max(0, Math.round(value)));
+    setResumeWeight(nextResume);
+    setSkillWeight(100 - nextResume);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -452,7 +501,9 @@ export default function ClientProjectPage({
       const matchPercent =
         totalRequired > 0 ? Math.round((matchCount / totalRequired) * 100) : 0;
       const resumeScore = student.final_score ?? 0;
-      const blendedScore = Math.round(matchPercent * 0.5 + resumeScore * 0.5);
+      const blendedScore = Math.round(
+        (matchPercent * skillWeight + resumeScore * resumeWeight) / 100
+      );
 
       byEmail.set(student.email, {
         matchCount,
@@ -466,7 +517,7 @@ export default function ClientProjectPage({
     }
 
     return byEmail;
-  }, [students, normalizedProjectSkills]);
+  }, [students, normalizedProjectSkills, skillWeight, resumeWeight]);
 
   /* Filter students by tab */
   const displayStudents = useMemo(() => {
@@ -742,6 +793,45 @@ export default function ClientProjectPage({
             Showing {displayStudents.length} profiles
           </p>
 
+          <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-[14px] font-bold text-gray-900">Candidate Score Weights</h2>
+              <p className="text-[12px] text-gray-500">Skill + Resume must total 100%</p>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="rounded-lg bg-gray-50 p-3">
+                <div className="mb-1 flex items-center justify-between text-[12px] font-semibold text-gray-700">
+                  <span>Skill Matching Weight</span>
+                  <span>{skillWeight}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={skillWeight}
+                  onChange={(e) => updateSkillWeight(Number(e.target.value))}
+                  className="w-full accent-[#57B1B2]"
+                />
+              </label>
+
+              <label className="rounded-lg bg-gray-50 p-3">
+                <div className="mb-1 flex items-center justify-between text-[12px] font-semibold text-gray-700">
+                  <span>Resume Weight</span>
+                  <span>{resumeWeight}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={resumeWeight}
+                  onChange={(e) => updateResumeWeight(Number(e.target.value))}
+                  className="w-full accent-[#57B1B2]"
+                />
+              </label>
+            </div>
+          </section>
+
           {/* ── Student Cards Grid ── */}
           <div className="mt-5 grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {displayStudents.map((student, idx) => {
@@ -754,7 +844,9 @@ export default function ClientProjectPage({
                 totalRequired: normalizedProjectSkills.length,
                 matchPercent: 0,
                 resumeScore: student.final_score ?? 0,
-                blendedScore: Math.round((student.final_score ?? 0) * 0.5),
+                blendedScore: Math.round(
+                  ((student.final_score ?? 0) * resumeWeight) / 100
+                ),
                 matchedSkills: [],
                 missingSkills: [],
               };
@@ -866,11 +958,11 @@ export default function ClientProjectPage({
                         {skillMatch.matchCount}/{skillMatch.totalRequired} ({skillMatch.matchPercent}%)
                       </p>
                       <p>
-                        <span className="font-bold">Skill Match Score (50%):</span>{" "}
+                        <span className="font-bold">Skill Match Score ({skillWeight}%):</span>{" "}
                         {formatScore(skillMatch.matchPercent)}
                       </p>
                       <p>
-                        <span className="font-bold">Resume Score (50%):</span>{" "}
+                        <span className="font-bold">Resume Score ({resumeWeight}%):</span>{" "}
                         {formatScore(skillMatch.resumeScore)}
                       </p>
                       <p>
