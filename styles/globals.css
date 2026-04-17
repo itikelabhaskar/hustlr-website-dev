@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Ovo&display=swap");
+/* Fonts loaded via next/font/google in src/fonts.js — no @import needed */
 
 @tailwind base;
 @tailwind components;
@@ -7,6 +7,57 @@
 :root {
   --font-ovo: "Ovo", serif;
   --font-poppins: "Poppins", sans-serif;
+  --font-dm-sans: "DM Sans", sans-serif;
+  --font-instrument-serif: "Instrument Serif", serif;
+  --font-jetbrains-mono: "JetBrains Mono", monospace;
+  --hustlr-teal: #62abac;
+  --hustlr-green: #a5bf52;
+}
+
+/* ── Custom cursor ──────────────────────────────── */
+.cursor-none,
+.cursor-none * {
+  cursor: none !important;
+}
+
+/* ── Lenis smooth scroll ────────────────────────── */
+html.lenis {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ── Scrollbar (thin, minimal) ──────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #111;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Text selection ─────────────────────────────── */
+::selection {
+  background: rgba(98, 171, 172, 0.35);
+  color: #fff;
+}
+
+/* ── Perspective helper for 3D word reveals ─────── */
+.perspective-hero {
+  perspective: 800px;
 }
 
 @layer base {
@@ -72,7 +123,7 @@
   html,
   body,
   #__next {
-    font-family: "Ovo", serif !important;
+    font-family: var(--font-dm-sans), "DM Sans", sans-serif;
     @apply min-h-screen;
   }
 }

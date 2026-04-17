@@ -1,16 +1,19 @@
-import { ThemeProvider } from "@/components/theme-provider";
 import { AppProps } from "next/app";
-import "@/styles/globals.css"; // Ensure global styles are imported
+import "@/styles/globals.css";
 import { Toaster } from "sonner";
-import { ovo, theSeasons } from "@/src/fonts";
+import { ovo, theSeasons, dmSans, jetbrainsMono, instrumentSerif } from "@/src/fonts";
+import SmoothScrollProvider from "@/src/components/SmoothScrollProvider";
+import CustomCursor from "@/src/components/CustomCursor";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    // <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-    <div className={`${ovo.variable} ${theSeasons.variable}`}>
+    <div
+      className={`${ovo.variable} ${theSeasons.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`}
+    >
+      <SmoothScrollProvider />
+      <CustomCursor />
       <Toaster richColors closeButton />
       <Component {...pageProps} />
     </div>
-    // </ThemeProvider>
   );
 }

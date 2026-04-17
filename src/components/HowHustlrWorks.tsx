@@ -1,126 +1,287 @@
-import React, { useState } from "react";
+"use client";
+import React, { useEffect, useRef, useState } from "react";
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+const clientSteps = [
+  {
+    num: "01",
+    title: "Get Verified",
+    desc: "Submit your business credentials. We verify every client so students know they're working with the real deal — building trust from day one.",
+    accent: "#62ABAC",
+  },
+  {
+    num: "02",
+    title: "Post Your Brief",
+    desc: "Define the scope, timeline, and budget. Think of it as a casting call — for brilliance. Be specific, attract the best.",
+    accent: "#A5BF52",
+  },
+  {
+    num: "03",
+    title: "Discover & Match",
+    desc: "Swipe through pre-vetted, top 5% talent. Shortlist your favourites in minutes — not after days of filtering irrelevant CVs.",
+    accent: "#62ABAC",
+  },
+  {
+    num: "04",
+    title: "Connect & Commit",
+    desc: "Chat directly, align on expectations, and fund via secure escrow. Zero upfront risk, total peace of mind.",
+    accent: "#A5BF52",
+  },
+  {
+    num: "05",
+    title: "Approve & Unlock",
+    desc: "Review the delivery. Approve it. Release payment. Guaranteed quality — or we replace at no cost, no questions.",
+    accent: "#62ABAC",
+  },
+];
+
+const studentSteps = [
+  {
+    num: "01",
+    title: "Apply",
+    desc: "Submit your resume, portfolio, and profile. We look at everything — so be honest, be thorough, be yourself.",
+    accent: "#62ABAC",
+  },
+  {
+    num: "02",
+    title: "Clear the Shortlist",
+    desc: "Skill tests, portfolio deep-dive, and a test project. This is where average falls off and top 5% steps forward.",
+    accent: "#A5BF52",
+  },
+  {
+    num: "03",
+    title: "Ace the Interview",
+    desc: "Our proprietary AI interview tests clarity of thought, problem-solving, and real-world readiness. No fluff — just excellence.",
+    accent: "#62ABAC",
+  },
+  {
+    num: "04",
+    title: "Swipe Into Gigs",
+    desc: "Match with verified clients and real paid projects. Swipe right, get matched, start working on things that actually matter.",
+    accent: "#A5BF52",
+  },
+  {
+    num: "05",
+    title: "Deliver & Earn",
+    desc: "Submit your work. Earn your rating. Unlock escrow-protected payment in 48 hours or less. No chasing. No waiting.",
+    accent: "#62ABAC",
+  },
+];
+
+type Tab = "clients" | "students";
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const HowHustlrWorks = () => {
-  const clientSteps = [
-    "Join and get verified — Upload ID and business documents for a trusted ecosystem.",
-    "Post your gig — Set your scope, timeline, and budget.",
-    "Swipe and shortlist — Discover top 5% student talent instantly.",
-    "Chat and hire — Connect, brief, and fund via escrow.",
-    "Approve and pay — Release payment after delivery, with replacement guarantee.",
-    "Trust built-in every step of the way. Verified clients only. Quality guaranteed or we replace.",
-  ];
-
-  const studentSteps = [
-    "Apply to Hustlr — Share resume and personal details.",
-    "Get shortlisted — Skill test, portfolio check, and test project.",
-    "Clear AI interview — Prove you're top 5% material.",
-    "Swipe to find gigs — Discover paid, real-world projects.",
-    "Deliver and earn — Submit, get rated, and paid via escrow.",
-    "Top 5% only: Real gigs, verified clients, fast payments",
-  ];
+  const [tab, setTab] = useState<Tab>("clients");
   const [activeStep, setActiveStep] = useState(0);
-  const [tab, setTab] = useState("clients");
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const prevStepRef = useRef(0);
+
+  const steps = tab === "clients" ? clientSteps : studentSteps;
+
+  // Scroll-driven step advancement
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const handleScroll = () => {
+      const rect = section.getBoundingClientRect();
+      const scrolled = -rect.top;
+      const total = rect.height - window.innerHeight;
+      const progress = Math.max(0, Math.min(1, scrolled / total));
+      const stepIdx = Math.min(
+        Math.floor(progress * steps.length * 1.02),
+        steps.length - 1
+      );
+      setActiveStep(stepIdx);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [tab, steps.length]);
+
+  // Animate content transition on step change
+  useEffect(() => {
+    if (prevStepRef.current === activeStep) return;
+    prevStepRef.current = activeStep;
+
+    const animate = async () => {
+      const { gsap } = await import("gsap");
+      if (!contentRef.current) return;
+      const els = contentRef.current.querySelectorAll(".step-animate");
+      gsap.fromTo(
+        els,
+        { opacity: 0, y: 22 },
+        { opacity: 1, y: 0, stagger: 0.07, duration: 0.5, ease: "power2.out" }
+      );
+    };
+
+    animate();
+  }, [activeStep]);
+
+  // Reset on tab switch
+  const handleTabChange = (t: Tab) => {
+    setTab(t);
+    setActiveStep(0);
+    prevStepRef.current = -1;
+  };
+
+  const step = steps[activeStep];
+
   return (
-    <section className="relative flex flex-col items-center justify-center min-h-screen text-center px-4 mt-32">
-      <h2 className=" font-serif text-2xl sm:text-4xl font-normal mb-16 text-white">
-        How Hustlr Works
-      </h2>
+    /* Outer wrapper: exactly steps.length × 100vh so no dead space */
+    <div ref={sectionRef} style={{ height: `${steps.length * 100}vh` }}>
+      {/* Sticky panel */}
+      <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden bg-[#111] px-6 lg:px-24">
 
-      {/* Tabs */}
-      <div className="flex justify-center mb-16 gap-16">
-        <button
-          className={`px-8 py-2 rounded-t-lg font-semibold transition-all duration-300 text-lg sm:text-1xl ${
-            tab === "clients"
-              ? "bg-white text-black shadow"
-              : "bg-transparent text-white border-b-2 border-transparent hover:border-white"
-          }`}
-          onClick={() => {
-            setTab("clients");
-            setActiveStep(0);
-          }}
-        >
-          For Clients
-        </button>
-        <button
-          className={`px-8 py-2 rounded-t-lg font-semibold transition-all duration-300 text-lg sm:text-1xl ${
-            tab === "students"
-              ? "bg-white text-black shadow"
-              : "bg-transparent text-white border-b-2 border-transparent hover:border-white"
-          }`}
-          onClick={() => {
-            setTab("students");
-            setActiveStep(0);
-          }}
-        >
-          For Students
-        </button>
-      </div>
+        {/* Top label */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="w-7 h-px bg-[#62ABAC]" />
+          <span
+            className="text-[#62ABAC] text-[10px] sm:text-xs font-medium tracking-[0.32em] uppercase"
+            style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
+          >
+            How It Works
+          </span>
+        </div>
 
-      {/* Timeline */}
-      <div className="w-full max-w-6xl mx-auto">
-        {/* Timeline dots and lines */}
-        <div className="flex flex-wrap justify-center items-center mb-8 sm:mb-16 px-4 gap-2 sm:gap-0">
-          {[0, 1, 2, 3, 4].map((index) => (
-            <div key={index} className="flex items-center">
-              <button
-                onClick={() => setActiveStep(index)}
-                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-base sm:text-lg transition-all duration-300 ${
-                  index <= activeStep
-                    ? "bg-white text-black"
-                    : "bg-white/20 text-white/50"
-                }`}
-              >
-                {index + 1}
-              </button>
-              {index < 4 && (
-                <div
-                  className={`h-1 w-16 sm:w-32 transition-all duration-300 ${
-                    index < activeStep ? "bg-white" : "bg-white/20"
-                  }`}
-                />
-              )}
-            </div>
+        {/* Tab toggle */}
+        <div className="inline-flex gap-1 p-1 rounded-full border border-white/10 bg-white/[0.03] mb-14 sm:mb-16">
+          {(["clients", "students"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => handleTabChange(t)}
+              className={`px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${
+                tab === t
+                  ? "bg-white text-[#111]"
+                  : "text-white/50 hover:text-white"
+              }`}
+              style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
+            >
+              For {t === "clients" ? "Clients" : "Students"}
+            </button>
           ))}
         </div>
 
-        {/* Step content */}
-        <div className="relative h-48 sm:h-64">
-          {(tab === "clients" ? clientSteps : studentSteps).map(
-            (step, index) => {
-              if (index === 5) return null; // Skip trust message for now
+        {/* Main step content */}
+        <div className="w-full max-w-5xl flex items-start gap-16 lg:gap-24">
 
-              return (
+          {/* Left: text content */}
+          <div ref={contentRef} className="flex-1 min-w-0">
+            <div
+              className="step-animate text-xs font-medium tracking-widest mb-4"
+              style={{
+                color: step.accent,
+                fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+              }}
+            >
+              Step {step.num}
+            </div>
+
+            <h3
+              className="step-animate text-4xl sm:text-5xl md:text-6xl font-normal text-white mb-6 leading-[1.05]"
+              style={{
+                fontFamily: "var(--font-dm-sans), 'DM Sans', serif",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {step.title}
+            </h3>
+
+            <p
+              className="step-animate text-white/55 text-base sm:text-lg leading-relaxed max-w-lg"
+              style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}
+            >
+              {step.desc}
+            </p>
+          </div>
+
+          {/* Right: progress indicator */}
+          <div className="hidden lg:flex flex-col gap-5 flex-shrink-0">
+            {steps.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveStep(i)}
+                className="flex items-center gap-3 group"
+              >
                 <div
-                  key={step}
-                  className={`absolute w-full transition-all duration-500 ${
-                    index === activeStep
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 translate-y-8 pointer-events-none"
-                  }`}
+                  className="transition-all duration-500"
+                  style={{
+                    width: i === activeStep ? "32px" : "16px",
+                    height: "1px",
+                    background:
+                      i === activeStep
+                        ? "#fff"
+                        : i < activeStep
+                        ? step.accent
+                        : "rgba(255,255,255,0.15)",
+                  }}
+                />
+                <div
+                  className="w-[7px] h-[7px] rounded-full transition-all duration-500"
+                  style={{
+                    background:
+                      i === activeStep
+                        ? "#fff"
+                        : i < activeStep
+                        ? step.accent
+                        : "rgba(255,255,255,0.2)",
+                    transform:
+                      i === activeStep ? "scale(1.3)" : "scale(1)",
+                  }}
+                />
+                <span
+                  className="text-xs transition-colors duration-300"
+                  style={{
+                    fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+                    color:
+                      i === activeStep
+                        ? "rgba(255,255,255,0.9)"
+                        : "rgba(255,255,255,0.2)",
+                  }}
                 >
-                  <div className="flex flex-col items-center px-4">
-                    <h3 className="text-xl sm:text-2xl md:text-3xl text-white font-normal mb-2 sm:mb-4 text-center">
-                      {step.split(" — ")[0]}
-                    </h3>
-                    <p className="text-base sm:text-lg md:text-xl text-white/80 max-w-2xl text-center">
-                      {step.split(" — ")[1]}
-                    </p>
-                  </div>
-                </div>
-              );
-            }
-          )}
+                  {s.num}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Trust message */}
+        {/* Bottom progress bar */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-48 sm:w-72">
+          <div className="w-full h-px bg-white/10 relative overflow-hidden rounded-full">
+            <div
+              className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${((activeStep + 1) / steps.length) * 100}%`,
+                background: step.accent,
+              }}
+            />
+          </div>
+          <div
+            className="text-center mt-3 text-white/25 text-[10px] tracking-widest"
+            style={{ fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace" }}
+          >
+            {activeStep + 1} / {steps.length}
+          </div>
+        </div>
+
+        {/* Large background step number */}
         <div
-          className="font-ovo mt-4 sm:mt-8 text-base sm:text-lg md:text-2xl text-white/90 text-center px-4"
-          style={{ fontFamily: "'Ovo', serif" }}
+          className="absolute right-0 bottom-0 text-[25vw] font-bold leading-none select-none pointer-events-none overflow-hidden"
+          style={{
+            fontFamily: "var(--font-dm-sans), 'DM Sans', serif",
+            color: "rgba(223, 223, 223, 0.07)",
+          }}
+          aria-hidden
         >
-          {tab === "clients" ? clientSteps[5] : studentSteps[5]}
+          {step.num}
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

@@ -12,7 +12,10 @@ module.exports = {
         logo: ["var(--font-the-seasons)", "serif"],
         heading: ["var(--font-the-seasons)", "serif"],
         subheading: ["var(--font-ovo)", "serif"],
-        body: ["var(--font-poppins)", "sans-serif"],
+        body: ["var(--font-dm-sans)", "sans-serif"],
+        sans: ["var(--font-dm-sans)", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
+        instrument: ["var(--font-instrument-serif)", "serif"],
       },
       keyframes: {
         fadeInTop: {
